@@ -135,5 +135,8 @@ def runFromTerminal(name, commandParameterList, mainFunctionToRun):
 	try:
 		mainFunctionToRun(options, args)
 	except:
-		Log.error(getLastErrorMessage())
+		if Log:
+			Log.error(getLastErrorMessage())
+		else:
+			print getLastErrorMessage()
 		raise

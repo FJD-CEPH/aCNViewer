@@ -212,12 +212,6 @@ class SimpleObjectBase(object):
 	
 	def __eq__(self, other, printDiffField = False):
 		''' compare all instance variables '''
-		if config1.TRUE_COMPARE == 'True':
-			if isinstance(other, SimpleObjectBase):
-				other = super(SimpleObjectBase, other)
-			if isinstance(self, SimpleObjectBase):
-				self = super(SimpleObjectBase, self)
-			return self == other
 		if other is None or not isinstance(other, SimpleObjectBase):
 			if printDiffField:
 				print 'other is None'

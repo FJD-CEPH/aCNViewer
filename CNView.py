@@ -9,7 +9,7 @@ from FileHandler import *
 from commandLineUtils import *
 from structure import Position
 from Cluster import ThreadManager, _getNbAvailableCpus, guessHpc
-from Utilities import Utilities
+from Utilities import *
 #from stats import getMedianFromList
 from annovar import ProcessFileFromCluster, Cmd
 from R import R
@@ -530,7 +530,7 @@ save.image(paste(baseName,".RData",sep=""))
 		if self.__binDir and not os.path.isfile(os.path.join(self.__binDir, 'R')):
 			rDir = None
 		self.__checkAndInstallRpackagesIfNecessary(rDir)
-		R(rDir).runScript(rFileName)
+		Utilities()._runFunc(R(rDir).runScript, [rFileName], ascatFile)
 		return ascatFile
 
 
@@ -1239,11 +1239,12 @@ class CNView:
 			outFh2.write([end, chrName, -percent])
 	
 	def __createHistDataFileAndGetMaxValue(self, dataList, targetDir, ploidyDict, keyword, lohDataDict = None):
-		fileName = os.path.join(targetDir, '%s_hist_%s.txt' % (keyword, self.__suffix))
+		baseName = '.'.join(os.path.basename(self.__ascatFile).split('.')[:-1])
+		fileName = os.path.join(targetDir, '%s_%s_hist_%s.txt' % (baseName, keyword, self.__suffix))
 		outFh = CsvFileWriter(fileName)
 		maxValue = lohFileName = None
 		if lohDataDict:
-			lohFileName = os.path.join(targetDir, '%s_hist_%s_loh.txt' % (keyword, self.__suffix))
+			lohFileName = os.path.join(targetDir, '%s_%s_hist_%s_loh.txt' % (baseName, keyword, self.__suffix))
 			outFh2 = CsvFileWriter(lohFileName)
 		dataList0 = dataList[0][-1]
 		lohPointList = []
@@ -1385,7 +1386,7 @@ class CNView:
 			return maxValue
 		if maxValueToUse:
 			maxValue = maxValueToUse
-		rFileName = self.__createHistRscriptFile(targetDir, 'merged%s' % keyword, histFileName, maxValue, lohHistFileName, centromereDict)
+		rFileName = self.__createHistRscriptFile(targetDir, '%s_merged%s' % ('.'.join(os.path.basename(self.__ascatFile).split('.')[:-1]), keyword), histFileName, maxValue, lohHistFileName, centromereDict)
 		Utilities.mySystem('xvfb-run --auto-servernum  %sRscript --vanilla %s' % (self.__binStr, rFileName))
 		
 	def __createHistogramBySample(self, matrixDict, ploidyDict, targetDir, lohMatrixDict, centromereDict):
@@ -1585,7 +1586,10 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 		Utilities.mySystem('xvfb-run -w 5 --auto-servernum  %sRscript --vanilla %s %sout' % (self.__binStr, rFileName, rFileName))
 	
 	def __createMatrixFile(self, matrixDict, targetDir, keyword = '', ploidyFile = None):
-		from stats import getAvgAndStdDevFromList
+		try:
+			from stats import getAvgAndStdDevFromList
+		except ImportError:
+			getAvgAndStdDevFromList = None
 		outFileName = os.path.join(targetDir, 'matrix_%s%s.txt' % (keyword, self.__suffix))
 		outFh = CsvFileWriter(outFileName)
 		print '%d in matrixDict' % len(matrixDict)
@@ -1765,6 +1769,9 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 	def process(self, ascatFile, chrFile, targetDir, ploidyFile, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, keyword = None, defaultGroupValue = None, mergeCentromereSegments = None, gcFile = None, platform = None, libDir = None, gw6Dir = None):
 		if not os.path.isfile(ascatFile):
 			ascatFile = Utilities.getFunctionResultWithCache(os.path.join(ascatFile, 'ascatFile.pyDump'), RunAscat(self.__binDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir)
+		if not targetDir:
+			targetDir = os.path.dirname(ascatFile)
+		self.__ascatFile = ascatFile
 		outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = self.__createMatrixFileAndGetDicts(ascatFile, chrFile, targetDir, ploidyFile, centromereFile, mergeCentromereSegments)
 		if not ploidyFile:
 			ploidyFile = CNView(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)

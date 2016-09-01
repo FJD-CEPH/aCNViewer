@@ -1,9 +1,15 @@
 CNView: comprehensive genome-wide visualization of absolute copy number and copy neutral variations
 
 Dependencies:
-* APT (Affymetrix Power Tools) if you plan to process Afymetrix SNP arrays
+
+* APT (Affymetrix Power Tools: http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) if you plan to process Afymetrix SNP arrays
+
 * R for generating different graphs:
   + ggplot2
-  + ASCAT
+  + ASCAT (will be automatically installed if not already installed)
 
+
+Usage:
+
+Please refer to http://www.cephb.fr/tools/CNView.
 

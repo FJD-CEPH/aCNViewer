@@ -22,6 +22,11 @@ import re
 import math
 import stat
 
+def getAvgAndStdDevFromList(dataList):
+	avg = 1. * sum(dataList) / len(dataList)
+	std = sqrt(sum([(data - avg) ** 2 for data in dataList]) / len(dataList))
+	return avg, std
+
 try:
 	import Log
 	from config import config1
