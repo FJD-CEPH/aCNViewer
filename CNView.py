@@ -10,11 +10,217 @@ from commandLineUtils import *
 from structure import Position
 from Cluster import ThreadManager, _getNbAvailableCpus, guessHpc
 from Utilities import *
-#from stats import getMedianFromList
 from annovar import ProcessFileFromCluster, Cmd
 from R import R
 from color import Color
 from coverage import Coverage, OrientedPosition
+
+
+class RunTQN:
+	def __init__(self, binDir = None):
+		self.__binDir = binDir
+	
+	def __getHeaderForTQNinput(self, header):
+		currentHeader = ['Name', 'Chr', 'Position']
+		return currentHeader + [columnName for columnName in header if columnName not in currentHeader + ['SNP Name']]
+		
+	def __getOutFhForSampleName(self, sampleName, fhDict, targetDir, fileName, header):
+		outFh = fhDict.get(sampleName)
+		if not outFh:
+			outFileName = os.path.join(targetDir, FileNameGetter(os.path.basename(fileName)).get('_%s.txt' % sampleName))
+			outFh = CsvFileWriter(outFileName)
+			outFh.write(self.__getHeaderForTQNinput(header))
+			fhDict[sampleName] = outFh
+		return outFh
+	
+	def __getTQNlineToWrite(self, splittedLine, header, idxToExcludeList):
+		return [value for i, value in enumerate(splittedLine) if i not in idxToExcludeList]
+	
+	def _splitFinalReportBySample(self, fileName, targetDir, snpFile, sampleList = None):
+		snpPosDict = RunAscat()._getSnpDictFromFile(snpFile)
+		Utilities.mySystem('mkdir -p %s' % targetDir)
+		fh, sampleName, header, outFileName = self._getFhSampleNameHeaderAndOutFileNameFromFile(fileName, targetDir)
+		fhDict = {}
+		sampleIdIdx = header.index('Sample ID')
+		snpIdx = header.index('SNP Name')
+		idxToExcludeList = [snpIdx]
+		if 'Chr' in header:
+			idxToExcludeList.append(header.index('Chr'))
+		if 'Position' in header:
+			idxToExcludeList.append(header.index('Position'))
+		for splittedLine in fh:
+			sampleName = splittedLine[sampleIdIdx]
+			if sampleList and sampleName not in sampleList:
+				print 'Passing sample %s' % sampleName
+				continue
+			snpName = splittedLine[snpIdx]
+			if not snpPosDict.has_key(snpName):
+				continue
+			chrName, pos = snpPosDict[snpName]
+			outFh = self.__getOutFhForSampleName(sampleName, fhDict, targetDir, fileName, header)
+			outFh.write([snpName, chrName, pos] + self.__getTQNlineToWrite(splittedLine, header, idxToExcludeList))
+		
+	def __getBeadchipFromIlluminaFinalReportFile(self, fileName):
+		fh = ReadFileAtOnceParser(fileName)
+		for splittedLine in fh:
+			if splittedLine[0] == 'Content':
+				return splittedLine[2]
+		
+	def _getBeadchipList(self):
+		beadchipList = []
+		for clusterFile in glob.glob(os.path.join(self.__binDir, 'tQN', 'lib', '*clusters.txt')):
+			beadchip = os.path.basename(clusterFile).split('_tQN')[0]
+			beadchipList.append(beadchip)
+		return beadchipList
+	
+	def __getMatchLengthForBeadchips(self, name1, name2):
+		name1 = name1.lower()
+		name2 = name2.lower()
+		minLength = min(len(name1), len(name2))
+		nbMatches = 0
+		for i in range(minLength):
+			if name1[i] == name2[i]:
+				nbMatches += 1
+		return nbMatches
+	
+	def _getBeadchipNameFromIlluminaReportFile(self, fileName):
+		fileName = self.__getBeadchipFromIlluminaFinalReportFile(fileName)
+		
+		beadchipList = self._getBeadchipList()
+		resDict = defaultdict(list)
+		for beadchip in beadchipList:
+			nbMatches = self.__getMatchLengthForBeadchips(beadchip, fileName)
+			resDict[nbMatches].append(beadchip)
+		print beadchipList, resDict
+		beadchipList = resDict[max(resDict.keys())]
+		if len(beadchipList) != 1:
+			raise NotImplementedError('Could not automatically choose beadchip from bpm file name %s: matching beadchips are:\n%s' % (fileName, '\n'.join(beadchipList)))
+		return beadchipList[0]
+	
+	def _passHeader(self, fh):
+		found = False
+		for splittedLine in fh:
+			if splittedLine[0] == '[Data]':
+				found = True
+				break
+		if not found:
+			raise NotImplementedError('Could not find "[Data]" in file...')
+	
+	def _getFhSampleNameHeaderAndOutFileNameFromFile(self, fileName, targetDir):
+		fh = ReadFileAtOnceParser(fileName)
+		self._passHeader(fh)
+		header = fh.getSplittedLine()
+		sampleIdIdx = header.index('Sample ID')
+		splittedLine = fh.getSplittedLine()
+		sampleName = splittedLine[sampleIdIdx]
+		fh.restore(splittedLine)
+		outFileName = os.path.join(targetDir, splittedLine[sampleIdIdx] + '_extracted.txt')
+		return fh, sampleName, header, outFileName
+	
+	def _formatFinalReportFile(self, fileName, targetDir):
+		fh, sampleName, header, outFileName = self._getFhSampleNameHeaderAndOutFileNameFromFile(fileName, targetDir)
+		#logRidx = header.index('Log R Ratio')
+		#bafIdx = header.index('B Allele Freq')
+		xIdx = header.index('X')
+		yIdx = header.index('Y')
+		sampleIdIdx = header.index('Sample ID')
+		if header[:3] != ['SNP Name', 'Chr', 'Position']:
+			raise NotImplementedError('Expecting first 3 columns in header ')
+		outFh = CsvFileWriter(outFileName)
+		outFh.write(['Name'] + header[1:3] + [header[xIdx], header[yIdx]])
+		for splittedLine in fh:
+			outFh.write(splittedLine[:3] + [splittedLine[xIdx], splittedLine[yIdx]])
+		return outFileName
+	
+	def __createSampleFile(self, sampleName, sampleDir):
+		sampleFile = os.path.join(sampleDir, 'sample_names.txt')
+		outFh = CsvFileWriter(sampleFile)
+		outFh.write(['Assay', 'Filename', 'IGV_index'])
+		outFh.write([sampleName, 'None', 1])
+	
+	def __createExtractedFileFromShortReport(self, fileName, sampleName):
+		outFileName = os.path.join(os.path.dirname(fileName), sampleName + '_extracted.txt')
+		header = ReadFileAtOnceParser(fileName, bufferSize = 1).getSplittedLine()
+		xIdx = header.index('X')
+		yIdx = header.index('Y')
+		cmd = 'cut -f 1-3,%d,%d %s > %s' % (xIdx, yIdx, fileName, outFileName)
+		Utilities.mySystem(cmd)
+		
+	def _run(self, splitDir, beadchip):
+		sampleFile = os.path.join(splitDir, 'sample_names.txt')
+		outFh = CsvFileWriter(sampleFile)
+		outFh.write(['Assay', 'Filename', 'IGV_index'])
+		fileNb = 1
+		for splitFile in glob.glob(os.path.join(splitDir, '*.txt')):
+			if 'sample_names.txt' in splitFile or 'tQN_parameters.txt' in splitFile or '_extracted.txt' in splitFile:
+				continue
+			sampleName = os.path.basename(splitFile).split('_')[-1].split('.')[0]
+			outFh.write([sampleName, os.path.basename(splitFile), fileNb])
+			Utilities()._runFunc(self.__createExtractedFileFromShortReport, [splitFile, sampleName], splitFile)
+			fileNb += 1
+		outFh.close()
+		outputDir = os.path.join(splitDir, 'normalized')
+		Utilities.mySystem('mkdir -p %s' % outputDir)
+		self.__linkTQNfiles(splitDir)
+		tQNdir = os.path.join(self.__binDir, 'tQN')
+		cmd = 'cd %s && perl %s/tQN_normalize_samples.pl --beadchip=%s --input_directory=%s --output_directory=%s' % (splitDir, tQNdir, beadchip, splitDir, outputDir)
+		Utilities.mySystem(cmd)
+		return outputDir
+	
+	def __linkTQNfiles(self, targetDir):
+		tQNdir = os.path.join(self.__binDir, 'tQN')
+		for fileName in [os.path.join(tQNdir, 'lib'), os.path.join(tQNdir, 'tQN.R')]:
+			os.system('ln -s %s %s' % (fileName, targetDir))
+		
+	def _normalizeData(self, fileName, targetDir = None, beadchip = None):
+		if not beadchip:
+			beadchip = self._getBeadchipNameFromIlluminaReportFile(fileName)
+		sampleName = os.path.basename(fileName).split('_')[0]
+		sampleDir = os.path.join(targetDir, sampleName)
+		Utilities.mySystem('mkdir -p %s' % sampleDir)
+		os.system('ln -s %s %s' % (fileName, sampleDir))
+		self.__createSampleFile(sampleName, sampleDir)
+		outputDir = os.path.join(sampleDir, 'normalized')
+		Utilities.mySystem('mkdir -p %s' % outputDir)
+		self.__linkTQNfiles(sampleDir)
+		tQNdir = os.path.join(self.__binDir, 'tQN')
+		#print os.environ['HOSTNAME']
+		cmd = 'cd %s && perl %s/tQN_normalize_samples.pl --beadchip=%s --input_directory=%s --output_directory=%s' % (sampleDir, tQNdir, beadchip, sampleDir, outputDir)
+		Utilities.mySystem(cmd)
+		return 
+	
+	def _getSortedFinalReportListFromDir(self, dirName):
+		fileList = glob.glob(os.path.join(dirName, '*txt'))
+		fileList = [(int(os.path.basename(fileName).split('FinalReport')[-1].split('.')[0]), fileName) for fileName in fileList if 'FinalReport' in fileName]
+		fileList.sort()
+		return fileList
+	
+	def __checkNormalizedFile(self, fileName, finalReportFile):
+		sampleName = os.path.basename(fileName).split('_')[0]
+		normalizedFile =  os.path.join(os.path.dirname(fileName), sampleName, 'normalized', sampleName + '_tQN.txt')
+		if not os.path.isfile(normalizedFile):
+			os.system('rm %s_tQN_norm_done' % finalReportFile)
+			print normalizedFile, finalReportFile
+			#sys.exit(0)
+	
+	def process(self, dirName, targetDir):
+		if os.path.basename(targetDir.rstrip(os.path.sep)) != 'extracted':
+			targetDir = os.path.join(targetDir, 'extracted')
+		cluster = guessHpc()
+		Utilities.mySystem('mkdir -p %s' % targetDir)
+		outFh = CsvFileWriter(os.path.join(targetDir, 'sample_names.txt'))
+		outFh.write(['Assay', 'Filename', 'IGV_index'])
+		for reportNb, finalReportFile in self._getSortedFinalReportListFromDir(dirName):
+			#outFileName = self.__formatFinalReportFile(fileName, targetDir)
+			splitFile = finalReportFile + '_tQN_split'
+			fh, sampleName, header, outFileName = self._getFhSampleNameHeaderAndOutFileNameFromFile(finalReportFile, targetDir)
+			self.__checkNormalizedFile(outFileName, finalReportFile)
+			cmdList = [(finalReportFile, splitFile, 'python %s -p formatTQN -f [input] -t %s' % (os.path.abspath(__file__), targetDir)),
+			           (splitFile, finalReportFile + '_tQN_norm', Cmd('python %s -p tQN -f %s -t %s -b %s' % (os.path.abspath(__file__), outFileName, targetDir, self.__binDir), memory = 8))]
+			AnalyseSampleFastQFileBase()._runCmdList(cmdList, finalReportFile, cluster)
+			outFh.write([sampleName, os.path.basename(outFileName), reportNb])
+			#break
+
 
 class DefaultPloidyDict(dict):
 	def has_key(self, key):
@@ -25,8 +231,9 @@ class DefaultPloidyDict(dict):
 
 
 class RunAscat:
-	def __init__(self, binDir = None):
+	def __init__(self, binDir = None, rLibDir = None):
 		self.__binDir = binDir
+		self.__rLibDir = rLibDir
 	
 	def __createGroupFilesAndGetHeaderAndPloidyIdx(self, ploidyFile, targetDir):
 		fh = ReadFileAtOnceParser(ploidyFile)
@@ -286,8 +493,22 @@ class RunAscat:
 			idxDict[sampleType][dataType].append(i)
 		return idxDict, currentTumorSampleList, normalSampleList
 	
+	def __getTumorSampleListFromLrrBafFile(self, fileName):
+		fh = ReadFileAtOnceParser(fileName, bufferSize = 1)
+		header = fh.getSplittedLine()
+		sampleSet = set([columnName.split('.')[0] for columnName in header[3:]])
+		return list(sampleSet)
+	
 	def __createRscript(self, sampleFile, lrrBafFile, sampleAliasFile, gcFile, platform):
-		tumorSampleList = self.__getTumorSampleListFromFile(platform, sampleFile, sampleAliasFile)
+		lrrBafFile = os.path.abspath(lrrBafFile)
+		gcFile = os.path.abspath(gcFile)
+		if sampleFile:
+			sampleFile = os.path.abspath(sampleFile)
+			if sampleAliasFile:
+				sampleAliasFile = os.path.abspath(sampleAliasFile)
+			tumorSampleList = self.__getTumorSampleListFromFile(platform, sampleFile, sampleAliasFile)
+		else:
+			tumorSampleList = self.__getTumorSampleListFromLrrBafFile(lrrBafFile)
 		print '%d tumor samples' % len(tumorSampleList)
 		#print tumorSampleList
 		idxDict, tumorSampleList, normalSampleList = self.__getTumorAndNormalLogRandBafIdxDictFromFile(lrrBafFile, tumorSampleList)
@@ -297,6 +518,9 @@ class RunAscat:
 		Utilities()._runFunc(Utilities.mySystem, [cmd], snpPosFile)
 		print len(tumorSampleList), len(normalSampleList), len(idxDict['Tumor']['LogR']), len(idxDict['Tumor']['BAF']), len(idxDict['Normal']['LogR']), len(idxDict['Normal']['BAF'])
 		baseName = '.'.join(lrrBafFile.split('.')[:-1])
+		libStr = ''
+		if self.__rLibDir:
+			libStr = ', lib.loc = "%s"' % self.__rLibDir
 		rStr = '''X11.options(colortype="pseudo.cube")
 
 baseName <- "%s"
@@ -361,7 +585,7 @@ if (isMatchedNormalTumor){
 
 #run ASCAT functions
 
-library(ASCAT)
+library(ASCAT%s)
 if (isMatchedNormalTumor){
 	ascat.bc <- ascat.loadData(file.tumor.LogR, file.tumor.BAF, file.normal.LogR, file.normal.BAF, chrs=1:22)
 } else {
@@ -393,7 +617,7 @@ write.table(ascat.output$ploidy, file=paste(baseName,".ploidy.txt",sep=""), sep=
 
 save.image(paste(baseName,".RData",sep=""))
 ''' % (baseName, lrrBafFile, snpPosFile, R()._getStrFromList(normalSampleList), R()._getStrFromList(tumorSampleList), R()._getStrFromList(idxDict['Tumor']['LogR']),
-	   R()._getStrFromList(idxDict['Tumor']['BAF']), R()._getStrFromList(idxDict['Normal']['LogR']), R()._getStrFromList(idxDict['Normal']['BAF']), gcFile, platform, FileNameGetter(lrrBafFile).get('Ro'), FileNameGetter(lrrBafFile).get('_ASCAT.Ro'))
+	   R()._getStrFromList(idxDict['Tumor']['BAF']), R()._getStrFromList(idxDict['Normal']['LogR']), R()._getStrFromList(idxDict['Normal']['BAF']), libStr, gcFile, platform, FileNameGetter(lrrBafFile).get('Ro'), FileNameGetter(lrrBafFile).get('_ASCAT.Ro'))
 		rFileName = FileNameGetter(lrrBafFile).get('R')
 		outFh = CsvFileWriter(rFileName)
 		outFh.write(rStr)
@@ -509,6 +733,12 @@ save.image(paste(baseName,".RData",sep=""))
 		Utilities()._runFunc(Utilities.mySystem, [cmd], os.path.join(celDirName, 'step1.4'))
 		return lrrBafFile
 	
+	def __convertIlluminaFinalReportIntoLrrBafFile(self, fileName):
+		return
+	
+	def _getLrrBafFileFromIlluminaFinalReports(self, dirName):
+		return
+	
 	def __checkAndInstallRpackagesIfNecessary(self, rDir):
 		#RColorBrewer
 		if R(rDir).isPackageInstalled('ASCAT'):
@@ -518,13 +748,225 @@ save.image(paste(baseName,".RData",sep=""))
 		            'unzip master.zip && rm master.zip',
 		            'cd ascat-master && tar czf ../%s ASCAT && cd .. && rm -rf ascat-master' % fileName]:
 			Utilities.mySystem(cmd)
-		R(rDir).installPackage(fileName)
+		try:
+			R(rDir, libDir = self.__rLibDir).installPackage(fileName)
+		except:
+			print 'You may need to add option "--rLibDir DIRNAME" in order to specify R package installation folder.'
+			raise
 		Utilities.mySystem('rm %s' % fileName)
+	
+	def _getFhHeaderAndLineNbForIlluminaReport(self, fileName):
+		lineNb = 0
+		fh = ReadFileAtOnceParser(fileName)
+		for splittedLine in fh:
+			lineNb += 1
+			if splittedLine[0] == '[Data]':
+				break
+		return fh, fh.getSplittedLine(), lineNb
+	
+	def _getSampleListFromSnpArrayDataFile(self, fileName):
+		fh, header, lineNb = RunAscat()._getFhHeaderAndLineNbForIlluminaReport(fileName)
+		columnName = 'B Allele Freq'
+		print 'Header', header
+		if columnName not in header:
+			return []
+		sampleList = []
+		if 'Sample ID' in header:
+			outSampleFile = FileNameGetter(fileName).get('_sample.txt')
+			sampleIdx = header.index('Sample ID')
+			cmd = "awk 'NR >= %d' <(cut -f %d %s) | uniq > %s" % (lineNb + 2, sampleIdx + 1, fileName, outSampleFile)
+			scriptName = FileNameGetter(fileName).get('sh')
+			Utilities.mySystem(cmd, scriptName = scriptName)
+			fh = ReadFileAtOnceParser(outSampleFile)
+			for splittedLine in fh:
+				sampleList.append(splittedLine[0])
+		else:
+			sampleFile = os.path.join(os.path.dirname(fileName), 'Sample_Map.txt')
+			fh = ReadFileAtOnceParser(sampleFile)
+			header = fh.getSplittedLine()
+			sampleIdx = header.index('ID')
+			for splittedLine in fh:
+				sampleList.append(splittedLine[sampleIdx])
+		return sampleList
+	
+	def __getLrrBafFileHeaderForSampleList(self, sampleList):
+		header = ['Name', 'Chr', 'Position']
+		for sampleName in sampleList:
+			header += ['%s.Log R Ratio' % sampleName, '%s.B Allele Freq' % sampleName]
+		return header
+	
+	def _getSnpDictFromFile(self, fileName):
+		fh = ReadFileAtOnceParser(fileName)
+		header = fh.getSplittedLine()
+		nameIdx = chrIdx = posIdx = None
+		if 'Name' in header:
+			nameIdx = header.index('Name')
+			chrIdx = header.index('Chr')
+			if 'Position' in header:
+				posIdx = header.index('Position')
+			else:
+				posIdx = header.index('MapInfo')
+		else:
+			fh.restore(header)
+		snpDict = {}
+		for splittedLine in fh:
+			if nameIdx is not None:
+				snpName = splittedLine[nameIdx]
+				chrName = splittedLine[chrIdx]
+				pos = int(splittedLine[posIdx])
+			else:
+				snpName, chrName, pos = splittedLine[:3]
+				pos = int(pos)
+			snpDict[snpName] = chrName, pos
+		return snpDict
+	
+	def __getLogRandBafDictFromIlluminaReportFile(self, fileName, sampleList = None):
+		print 'Processing file "%s"' % fileName
+		fh, header, lineNb = self._getFhHeaderAndLineNbForIlluminaReport(fileName)
+		currentSampleList = Utilities.getFunctionResultWithCache(FileNameGetter(fileName).get('pyDump'), self._getSampleListFromSnpArrayDataFile, fileName)
+		if sampleList is None:
+			sampleList = []
+		#GSM248782.cel.Log R Ratio       GSM248782.cel.B Allele Freq
+		finalSampleList = [sampleName for sampleName in currentSampleList if not sampleList or sampleName in sampleList]
+		snpDict = defaultdict(dict)
+		snpNameIdx = header.index('SNP Name')
+		sampleIdIdx = header.index('Sample ID')
+		logRidx = header.index('Log R Ratio')
+		bafIdx = header.index('B Allele Freq')
+		nb = 0
+		for splittedLine in fh:
+			nb += 1
+			logR = float(splittedLine[logRidx])
+			baf = float(splittedLine[bafIdx])
+			sampleName = splittedLine[sampleIdIdx]
+			if sampleName in finalSampleList:
+				snpDict[splittedLine[snpNameIdx]][sampleName] = logR, baf
+			if nb % 1000000 == 0:
+				print nb, Utilities.getTimeString()
+		return snpDict, finalSampleList
+	
+	def __writeLrrBafFileFromDict(self, snpDict, snpFile, sampleList, outFileName):
+		snpPosDict = self._getSnpDictFromFile(snpFile)
+		outFh = CsvFileWriter(outFileName)
+		lineToWrite = self.__getLrrBafFileHeaderForSampleList(sampleList)
+		outFh.write(lineToWrite)
+		for snpName in snpDict:
+			if not snpPosDict.has_key(snpName):
+				print 'Passing SNP %s' % snpName
+				continue
+			chrName, pos = snpPosDict[snpName]
+			lineToWrite = [snpName, chrName, pos]
+			for sampleName in sampleList:
+				logR, baf = snpDict[snpName][sampleName]
+				lineToWrite += [logR, baf]
+			outFh.write(lineToWrite)
+	
+	def __createLrrBafFileFromNormalizedFile(self, fileName, snpFile, outFileName):
+		outFh = CsvFileWriter(outFileName)
+		snpPosDict = self._getSnpDictFromFile(snpFile)
+		fh = ReadFileAtOnceParser(fileName)
+		tQNkeyword = '.tQN '
+		header = fh.getSplittedLine()
+		if header[0] != 'Name' or tQNkeyword not in header[1]:
+			raise NotImplementedError('Header %s either does not start with "Name" of second column does not contain "%s"' % (header, tQNkeyword))
+		outFh.write([header[0], 'Chr', 'Position'] + [columnName.replace(tQNkeyword, '.') for columnName in header[1:]])
+		for splittedLine in fh:
+			snpName = splittedLine[0]
+			if not snpPosDict.has_key(snpName):
+				print 'Passing SNP %s' % snpName
+				continue
+			chrName, pos = snpPosDict[snpName]
+			outFh.write([splittedLine[0], chrName, pos] + splittedLine[1:])
+			
+	def _createLrrBafFileFromIlluminaReport(self, fileName, snpFile, targetDir = None, sampleList = None, normalize = True):
+		outFileName = FileNameGetter(fileName).get('_%d_lrrBaf.txt' % int(normalize))
+		if normalize:
+			beadchip = RunTQN(self.__binDir)._getBeadchipNameFromIlluminaReportFile(fileName)
+			if not targetDir:
+				targetDir = os.path.join(os.path.dirname(fileName), 'split')
+			Utilities()._runFunc(RunTQN(self.__binDir)._splitFinalReportBySample, [fileName, targetDir, snpFile, sampleList], FileNameGetter(fileName).get('_split'))
+			tQNdir = Utilities().getFunctionResultWithCache(FileNameGetter(fileName).get('_tQN.pyDump'), RunTQN(self.__binDir)._run, targetDir, beadchip)
+			normalizedFileName = os.path.join(tQNdir, 'tQN_beadstudio.txt')
+			Utilities()._runFunc(self.__createLrrBafFileFromNormalizedFile, [normalizedFileName, snpFile, outFileName], outFileName)
+		else:
+			snpDict, finalSampleList = self.__getLogRandBafDictFromIlluminaReportFile(fileName, sampleList)
+			self.__writeLrrBafFileFromDict(snpDict, snpFile, finalSampleList, outFileName)
+		return outFileName
+	
+	def __getHeaderFromFhList(self, fhList):
+		headerList = [fh.getSplittedLine() for fh in fhList]
+		header = headerList.pop(0)
+		for currentHeader in headerList:
+			header += currentHeader[3:]
+		return header
+	
+	def __hasLinesLeft(self, fhList):
+		hasLineLeft = False
+		for fh in fhList:
+			if fh.hasLinesLeft():
+				return True
+	
+	def __getSnpLineFromFh(self, fh, splittedLine):
+		snpLine = fh._snpDict.get(splittedLine[0])
+		if snpLine:
+			return snpLine
+		for currentSplittedLine in fh:
+			snpName =  currentSplittedLine[0]
+			if snpName == splittedLine[0]:
+				return currentSplittedLine
+			fh._snpDict[snpName] = currentSplittedLine
 		
-	def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile, platform, libDir = None, gw6Dir = None):
-		if os.path.isdir(lrrBafFile):
-			lrrBafFile = Utilities.getFunctionResultWithCache(os.path.join(lrrBafFile, 'pennCNV.pyDump'), self._runPennCnvAndGetLrrBafFile, lrrBafFile, libDir, gw6Dir, platform)
+	def __getNextLineToWriteFromFhList(self, fhList):
+		splittedLine = fhList[0].getSplittedLine()
+		for fh in fhList[1:]:
+			snpLine = self.__getSnpLineFromFh(fh, splittedLine)
+			splittedLine += snpLine[3:]
+		return splittedLine
+	
+	def __mergeLrrBafFiles(self, fileList, outFileName):
+		outFh = CsvFileWriter(outFileName)
+		fhList = [ReadFileAtOnceParser(fileName) for fileName in fileList]
+		outFh.write(self.__getHeaderFromFhList(fhList))
+		for fh in fhList[1:]:
+			fh._snpDict = {}
+		while self.__hasLinesLeft(fhList):
+			splittedLine = self.__getNextLineToWriteFromFhList(fhList)
+			outFh.write(splittedLine)
+	
+	def _createMergedIlluminaFinalReports(self, fileList, snpFile, outFileName, targetDir = None, sampleList = None, normalize = True):
+		snpDict = defaultdict(dict)
+		#sampleList = []
+		fileToMergeList = []
+		for fileName in fileList:
+			lrrBafFile = Utilities.getFunctionResultWithCache(FileNameGetter(fileName).get('_%d_lrrBaf.pyDump' % int(normalize)), self._createLrrBafFileFromIlluminaReport, fileName, snpFile, targetDir, sampleList, normalize)
+			fileToMergeList.append(lrrBafFile)
+			#currentSnpDict, currentSampleList = Utilities.getFunctionResultWithCache(FileNameGetter(fileName).get('_snpDict.pyDump'), self.__getLogRandBafDictFromIlluminaReportFile, fileName)
+			#currentSnpDict, currentSampleList = self.__getLogRandBafDictFromIlluminaReportFile(fileName)
+			#snpDict.update(currentSnpDict)
+			#sampleList += currentSampleList
+		#self.__writeLrrBafFileFromDict(snpDict, snpFile, sampleList, outFileName)
+		self.__mergeLrrBafFiles(fileToMergeList, outFileName)
+		
+	def __doesDirContainAffymetrixData(self, dirName):
+		return glob.glob(os.path.join(dirName, '*.cel')) + glob.glob(os.path.join(dirName, '*.cel.gz'))
+	
+	def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile, platform, libDir = None, gw6Dir = None, snpFile = None, normalize = True, sampleList = None):
+		if ',' in lrrBafFile:
+			lrrBafFile = lrrBafFile.split(',')
+		if type(lrrBafFile) == types.ListType:
+			outFileName = os.path.join(os.path.dirname(lrrBafFile[0]), 'lrrBaf_%d.txt' % int(normalize))
+			Utilities()._runFunc(self._createMergedIlluminaFinalReports, [lrrBafFile, snpFile, outFileName, None, sampleList, normalize], outFileName)
+			lrrBafFile = outFileName
 			print 'lrrBafFile = %s' % lrrBafFile
+		elif os.path.isdir(lrrBafFile):
+			if self.__doesDirContainAffymetrixData(lrrBafFile):
+				lrrBafFile = Utilities.getFunctionResultWithCache(os.path.join(lrrBafFile, 'pennCNV.pyDump'), self._runPennCnvAndGetLrrBafFile, lrrBafFile, libDir, gw6Dir, platform)
+			else:
+				outFileName = os.path.join(lrrBafFile, 'lrrBaf_%d.txt' % int(normalize))
+				Utilities()._runFunc(self._createMergedIlluminaFinalReports, [fileList, snpFile, outFileName, None, sampleList, normalize], outFileName)
+				lrrBafFile = outFileName
+			print 'lrrBafFile = %s' % lrrBafFile
+		
 		rFileName, ascatFile = self.__createRscript(sampleFile, lrrBafFile, sampleAliasFile, gcFile, platform)
 		rDir = self.__binDir
 		if self.__binDir and not os.path.isfile(os.path.join(self.__binDir, 'R')):
@@ -535,12 +977,12 @@ save.image(paste(baseName,".RData",sep=""))
 
 
 class CNView:
-	def __init__(self, windowSize, percent, binDir = None, useShape = False, sampleFile = None, sampleAliasFile = None, groupColumnName = None):
+	def __init__(self, windowSize, percent, binDir = None, useShape = False, sampleFile = None, sampleAliasFile = None, groupColumnName = None, rLibDir = None):
 		self.__windowSize = windowSize
 		self.__percent = percent
 		self.__binDir = binDir
 		self.__binStr = ''
-		if binDir:
+		if binDir and os.path.isfile(os.path.join(binDir, 'R')):
 			self.__binStr = binDir + '/'
 		self.__useShape = useShape
 		self.__sampleFile = sampleFile
@@ -551,6 +993,7 @@ class CNView:
 			self.__sampleDict = RunAscat()._getSampleDictFromFile(sampleAliasFile)
 		if sampleFile:
 			self.__sampleToGroupDict = RunAscat()._getSampleToGroupDictFromFile(sampleFile, groupColumnName, self.__sampleDict)
+		self.__rLibDir = rLibDir
 	
 	def processAll(self, ascatFile, chrFile, targetDir, ploidyFile, percentList, baseList, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, groupColumnName = None):
 		Utilities.mySystem('mkdir -p %s' % targetDir)
@@ -1355,8 +1798,11 @@ class CNView:
 	def __createHistogramForSample(self, dataList, ploidyDict, sampleName, targetDir, lohDataDict, centromereDict):
 		histFileName, maxValue, lohHistFileName = self.__createHistDataFileAndGetMaxValue([(sampleName, dataList)], targetDir, ploidyDict, sampleName, lohDataDict)
 		rFileName = self.__createHistRscriptFile(targetDir, sampleName, histFileName, maxValue, lohHistFileName, centromereDict)
-		Utilities.mySystem('xvfb-run -w 60 --auto-servernum  %sRscript --vanilla %s' % (self.__binStr, rFileName))
-	
+		cmd = '%sRscript --vanilla %s' % (self.__binStr, rFileName)
+		if self.__binDir:
+			cmd = 'xvfb-run -w 60 --auto-servernum ' + cmd
+		Utilities.mySystem(cmd)
+		
 	def __createMergedHistogram(self, matrixDict, ploidyDict, targetDir, lohMatrixDict, keyword = '', getMaxValueOnly = False, maxValueToUse = None, centromereDict = None):
 		print 'Merged hist for "%s": %d samples: %s' % (keyword, len(matrixDict), matrixDict.keys())
 		dataList = []
@@ -1387,7 +1833,10 @@ class CNView:
 		if maxValueToUse:
 			maxValue = maxValueToUse
 		rFileName = self.__createHistRscriptFile(targetDir, '%s_merged%s' % ('.'.join(os.path.basename(self.__ascatFile).split('.')[:-1]), keyword), histFileName, maxValue, lohHistFileName, centromereDict)
-		Utilities.mySystem('xvfb-run --auto-servernum  %sRscript --vanilla %s' % (self.__binStr, rFileName))
+		cmd = '%sRscript --vanilla %s' % (self.__binStr, rFileName)
+		if self.__binStr:
+			cmd = 'xvfb-run --auto-servernum ' + cmd
+		Utilities.mySystem(cmd)
 		
 	def __createHistogramBySample(self, matrixDict, ploidyDict, targetDir, lohMatrixDict, centromereDict):
 		cluster = ThreadManager(_getNbAvailableCpus())
@@ -1583,8 +2032,11 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 		outFh = CsvFileWriter(rFileName)
 		outFh.write(rStr)
 		outFh.close()
-		Utilities.mySystem('xvfb-run -w 5 --auto-servernum  %sRscript --vanilla %s %sout' % (self.__binStr, rFileName, rFileName))
-	
+		cmd = '%sRscript --vanilla %s %sout' % (self.__binStr, rFileName, rFileName)
+		if self.__binStr:
+			cmd = 'xvfb-run -w 5 --auto-servernum ' + cmd
+		Utilities.mySystem(cmd)
+		
 	def __createMatrixFile(self, matrixDict, targetDir, keyword = '', ploidyFile = None):
 		try:
 			from stats import getAvgAndStdDevFromList
@@ -1766,18 +2218,32 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 			outFh.write(splittedLine)
 		return outFileName
 	
-	def process(self, ascatFile, chrFile, targetDir, ploidyFile, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, keyword = None, defaultGroupValue = None, mergeCentromereSegments = None, gcFile = None, platform = None, libDir = None, gw6Dir = None):
+	def process(self, ascatFile, chrFile, targetDir, ploidyFile, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, keyword = None, defaultGroupValue = None, mergeCentromereSegments = None, gcFile = None, platform = None, libDir = None, gw6Dir = None, snpFile = None, normalize = True, sampleList = None):
+		if sampleList and os.path.isfile(sampleList[0]):
+			sampleList = Utilities.loadCache(sampleList[0])
 		if not os.path.isfile(ascatFile):
-			ascatFile = Utilities.getFunctionResultWithCache(os.path.join(ascatFile, 'ascatFile.pyDump'), RunAscat(self.__binDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir)
+			if os.path.isdir(ascatFile):
+				dumpFileName = os.path.join(ascatFile, 'ascatFile.pyDump')
+			else:
+				dumpFileName = os.path.join(os.path.dirname(ascatFile.split(',')[0]), 'ascatFile_%d.pyDump' % hash(ascatFile))
+			ascatFile = Utilities.getFunctionResultWithCache(dumpFileName, RunAscat(self.__binDir, self.__rLibDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir, snpFile, normalize, sampleList)
+		########################################## add parameters for Illumina SNP arrays
 		if not targetDir:
 			targetDir = os.path.dirname(ascatFile)
 		self.__ascatFile = ascatFile
 		outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = self.__createMatrixFileAndGetDicts(ascatFile, chrFile, targetDir, ploidyFile, centromereFile, mergeCentromereSegments)
 		if not ploidyFile:
 			ploidyFile = CNView(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)
+			ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
 			print 'Using ploidyFile = %s' % ploidyFile
 		#sys.exit(1)
-		groupDict, group2Dict, colorDict, shapeDict, shapeDict2 = self._getGroupAndColorCodeDictFromFile(ploidyFile, defaultGroupValue)
+		print ploidyDict
+		try:
+			groupDict, group2Dict, colorDict, shapeDict, shapeDict2 = self._getGroupAndColorCodeDictFromFile(ploidyFile, defaultGroupValue)
+		except NotImplementedError:
+			groupDict = {}
+			colorDict = shapeDict = group2Dict = shapeDict2 = None
+			
 		if plotAll or histogram:
 			lohFileName = ascatFile + '_lohNeutral.txt'
 			if not os.path.isfile(lohFileName):
@@ -1818,7 +2284,9 @@ def run(options, args):
 	if options.all:
 		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName).processAll(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.percentList, options.baseList, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile)
 	elif options.progName == 'ASCAT':
-		RunAscat(options.binDir).process(options.fileName, options.sampleFile, options.sampleAliasFile, options.gcFile, options.platform, options.libDir, options.gw6Dir)
+		RunAscat(options.binDir, options.rLibDir).process(options.fileName, options.sampleFile, options.sampleAliasFile, options.gcFile, options.platform, options.libDir, options.gw6Dir, options.probeFile, options.normalize, options.sampleList)
+	#elif options.progName == 'convertIlluminaReportsToLrrBaf':
+		#RunAscat()._createMergedIlluminaFinalReports(fileList, options.probeFile, options.outFileName, sampleList = None)
 	elif options.progName == 'createFileWithUpdatedPositions':
 		RunAscat(options.binDir)._createFileWithUpdatedPositions(options.fileName, options.probeFile, options.targetBuild)
 	elif options.progName == 'dendroFeatures':
@@ -1831,7 +2299,7 @@ def run(options, args):
 		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName)._createPloidyFile(options.fileName, options.chrFile, options.targetDir, None, options.centromereFile, options.mergeCentromereSegments, options.ploidyFile)
 		#CNView(options.windowSize, options.percentage, options.binDir, options.useShape)._createPloidyFile2(options.fileName, options.ploidyFile)
 	else:
-		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName).process(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile, mergeCentromereSegments = options.mergeCentromereSegments, gcFile = options.gcFile, platform = options.platform, libDir = options.libDir, gw6Dir = options.gw6Dir)
+		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName, options.rLibDir).process(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile, mergeCentromereSegments = options.mergeCentromereSegments, gcFile = options.gcFile, platform = options.platform, libDir = options.libDir, gw6Dir = options.gw6Dir, snpFile = options.probeFile, normalize = options.normalize, sampleList = options.sampleList)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOOLEAN),
                            CommandParameter('b', 'binDir', 'string'),
@@ -1841,6 +2309,7 @@ runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOO
                            CommandParameter('d', 'dendrogram', CommandParameterType.BOOLEAN, defaultValue = False),
                            CommandParameter('f', 'fileName', 'string'),
                            CommandParameter('F', 'fragmentSize', 'int'),
+                           CommandParameter('fileName2', 'string'),
                            CommandParameter('g', 'gcFile', 'string'),
                            CommandParameter('G', 'groupColumnName', 'string'),
                            CommandParameter('gw6Dir', 'string'),
@@ -1848,7 +2317,8 @@ runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOO
                            CommandParameter('l', 'libDir', 'string'),
                            CommandParameter('m', 'merge', CommandParameterType.BOOLEAN, defaultValue = False),
                            CommandParameter('M', 'mergeCentromereSegments', CommandParameterType.BOOLEAN, defaultValue = False),
-                           CommandParameter('fileName2', 'string'),
+                           CommandParameter('n', 'normalize', CommandParameterType.BOOLEAN, defaultValue = True),
+                           CommandParameter('o', 'outFileName', 'string'),
                            CommandParameter('p', 'percentage', 'float'),
                            CommandParameter('P', 'progName', 'string'),
                            CommandParameter('percentList', CommandParameterType.COMMA_SEP_FLOAT),# defaultValue = [0.5, 1, 2, 5, 10]),
@@ -1856,8 +2326,10 @@ runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOO
                            CommandParameter('ploidyFile', 'string'),
                            CommandParameter('plotAll', CommandParameterType.BOOLEAN, defaultValue = False),
                            CommandParameter('probeFile', 'string'),
+                           CommandParameter('rLibDir', 'string'),
                            CommandParameter('sampleAliasFile', 'string'),
                            CommandParameter('sampleFile', 'string'),
+                           CommandParameter('sampleList', CommandParameterType.COMMA_SEP),
                            CommandParameter('t', 'targetDir', 'string'),
                            CommandParameter('T', 'targetBuild', 'string'),
                            CommandParameter('u', 'useShape', CommandParameterType.BOOLEAN, defaultValue = False),
