@@ -993,6 +993,8 @@ class CNView:
 			self.__sampleDict = RunAscat()._getSampleDictFromFile(sampleAliasFile)
 		if sampleFile:
 			self.__sampleToGroupDict = RunAscat()._getSampleToGroupDictFromFile(sampleFile, groupColumnName, self.__sampleDict)
+		if rLibDir:
+			rLibDir = os.path.abspath(rLibDir)
 		self.__rLibDir = rLibDir
 	
 	def processAll(self, ascatFile, chrFile, targetDir, ploidyFile, percentList, baseList, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, groupColumnName = None):
