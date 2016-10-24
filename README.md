@@ -9,9 +9,8 @@ Dependencies:
   + ASCAT (will be automatically installed if not already installed)
 
 
-Usage:
+![Overview of CNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
 
-Please refer to http://www.cephb.fr/tools/CNView.
 
 ***
 
