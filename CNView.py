@@ -1569,6 +1569,7 @@ class CNView:
 	def __createSegmentPloidyFile(self, ascatFile, chrSizeDict, targetDir, ploidyDict, centromereDict = None, mergeCentromereSegments = False):
 		fh = ReadFileAtOnceParser(ascatFile)
 		header = fh.getSplittedLine()
+		print ascatFile
 		outFileName = os.path.join(targetDir, os.path.basename(ascatFile).split('.')[0] + '_segments_%s.txt' % self.__suffix)
 		outFh = CsvFileWriter(outFileName)
 		matrixDict = {}
@@ -2229,15 +2230,15 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 			else:
 				dumpFileName = os.path.join(os.path.dirname(ascatFile.split(',')[0]), 'ascatFile_%d.pyDump' % hash(ascatFile))
 			ascatFile = Utilities.getFunctionResultWithCache(dumpFileName, RunAscat(self.__binDir, self.__rLibDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir, snpFile, normalize, sampleList)
+		if not ploidyFile:
+			ploidyFile = CNView(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)
+			#ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
+			print 'Using ploidyFile = %s' % ploidyFile
 		########################################## add parameters for Illumina SNP arrays
 		if not targetDir:
 			targetDir = os.path.dirname(ascatFile)
 		self.__ascatFile = ascatFile
 		outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = self.__createMatrixFileAndGetDicts(ascatFile, chrFile, targetDir, ploidyFile, centromereFile, mergeCentromereSegments)
-		if not ploidyFile:
-			ploidyFile = CNView(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)
-			ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
-			print 'Using ploidyFile = %s' % ploidyFile
 		#sys.exit(1)
 		print ploidyDict
 		try:
