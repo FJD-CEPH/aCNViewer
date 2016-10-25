@@ -9,7 +9,7 @@ Dependencies:
   + ASCAT (will be automatically installed if not already installed) if you are analyzing raw SNP array data
   + Sequenza if you are analyzing paired bams
 
-* Python with version >= 2.5
+* Python with version &ge; 2.5
 
 
 ![Overview of CNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
@@ -26,7 +26,7 @@ Dependencies:
 * Download Affymetrix Power Tools from Affymetrix website and uncompress it in BIN_DIR
 
 
-* Test data set snpArrays250k_sty.tar.gz: https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing
+* Test data set [snpArrays250k_sty.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing)
 
 
 Let's respectively call _DATA_DIR_ and _BIN_DIR_ the location where respectively snpArrays250k_sty.tar.gz and APT archive have been uncompressed.
@@ -43,4 +43,3 @@ Compare generated histograms with the ones in DATA_DIR/snpArrays250k_sty/expecte
 `python aCNViewer.py -f DATA_DIR/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c DATA_DIR/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C DATA_DIR/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile DATA_DIR/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
 
 Compare generated histograms with the ones in DATA_DIR/snpArrays250k_sty/expectedResults/test2
-thon with version 
