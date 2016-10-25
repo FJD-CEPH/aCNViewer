@@ -6,7 +6,10 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 ##Table of contents
 - [Dependencies](#dependencies)
 - [Overview](#overview)
-- [Tutorial](#tutorial)
+- [Tutorial](#tutorial):
+  + [Affymetrix](#affymetrix)
+  + [Illumina](#illumina)
+  + [NGS](#ngs)
 
 
 ***
@@ -39,7 +42,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 * Test data set [snpArrays250k_sty.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing)
 
-* For testAffy1: download [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it in BIN_DIR
+* For **testAffy1** only: download [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it in BIN_DIR
 
 
 
@@ -57,3 +60,8 @@ Compare generated histograms with the ones in DATA_DIR/snpArrays250k_sty/expecte
 `python aCNViewer.py -f DATA_DIR/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c DATA_DIR/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C DATA_DIR/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile DATA_DIR/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
 
 Compare generated histograms with the ones in DATA_DIR/snpArrays250k_sty/expectedResults/test2
+
+
+####Illumina
+
+###NGS
