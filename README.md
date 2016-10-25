@@ -1,17 +1,26 @@
-aCNViewer: comprehensive genome-wide visualization of absolute copy number and copy neutral variations
+#aCNViewer
+comprehensive genome-wide visualization of absolute copy number and copy neutral variations
 
-Dependencies:
+**Contact:** Victor Renault (aCNViewer@cephb.fr)
+
+##Table of contents
+- [Dependencies](#Dependencies)
+
+
+***
+
+##Dependencies:
 
 * APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process Afymetrix SNP arrays
 
 * a recent version of R with ggplot2 installed for generating different graphs:
-  + ggplot2
   + ASCAT (will be automatically installed if not already installed) if you are analyzing raw SNP array data
   + Sequenza if you are analyzing paired bams
 
 * Python with version &ge; 2.5
 
 
+##Overview:
 ![Overview of CNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
 
 
