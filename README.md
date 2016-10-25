@@ -1,7 +1,7 @@
 #aCNViewer
 comprehensive genome-wide visualization of absolute copy number and copy neutral variations
 
-**Contact:** Victor Renault (aCNViewer@cephb.fr)
+**Contact:** Victor Renault / Alexandre How-Kit (aCNViewer@cephb.fr)
 
 ##Table of contents
 - [Dependencies](#dependencies)
