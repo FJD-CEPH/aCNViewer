@@ -11,6 +11,8 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
   + [Affymetrix](#affymetrix)
   + [Illumina](#illumina)
   + [NGS](#ngs)
+  + [Processing CNV files](#processing-cnv-file)
+  
 
 
 ***
@@ -128,6 +130,8 @@ the command is the same as above with `createMpileUp` set to `1`:<br>
 
 
 ###Processing CNV file
+
+Both examples require to download aCNViewer_TEST_DATA.tar.gz.
 
 ####TestAffy2: generate histogram from ASCAT segment files with a window size of 2Mbp
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -G "BCLC stage" -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
