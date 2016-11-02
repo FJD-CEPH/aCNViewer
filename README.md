@@ -54,7 +54,7 @@ Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where r
 
 
 #####TestAffy: generate histogram from CEL files with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -G "BCLC stage" -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 
@@ -65,7 +65,7 @@ Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k
 
 #####TestIlluminaWithoutNormalization
 
-`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -u 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE`<br>
+`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE`<br>
 where:
   * `REPORT_FILES` is the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -130,12 +130,12 @@ the command is the same as above with `createMpileUp` set to `1`:<br>
 ###Processing CNV file
 
 ####TestAffy2: generate histogram from ASCAT segment files with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -G "BCLC stage" -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
 
 Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2`
 
 
 ####TestSequenzaCNVs: generate histogram from Sequenza results with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --dendrogram 0 --histogram 1 -u 1 -m 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
+`python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --histogram 1 -m 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
 
 Compare generated histogram with `aCNViewer_TEST_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`
