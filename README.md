@@ -74,9 +74,12 @@ where:
     - `B Allele Freq`
   * `CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
   * `WINDOW_SIZE`: segment size in bp
-  * `PROBE_POS_FILE`
+  * `PROBE_POS_FILE`: file listing the probes used on the SNP array with their genomic position. The file is tab-delimited with the following columns:
+    - `Name`
+    - `Chr`
+    - `MapInfo`
   * `ILLUMINA_PLATFORM`: name of ASCAT supported Illumina platform with a GC content file available ("Illumina660k" or "HumanOmniExpress12"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
-  * `ASCAT_GC_FILE`: GC file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
+  * `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
   * `SAMPLE_TO_PROCESS_FILE`: optional, used to specify list of samples to process in one of the following formats:
     - a comma-separated string listing all the samples to process
     - the name of text file with one line per sample to process
@@ -102,7 +105,7 @@ where:
     - `idvdName`
     - `sampleName`
     - `seqFile`
-    - `patientType` with value "N" or "T"
+    - `patientType` with value "N" for normal or "T" for tumor
   * `NB_THREADS` indicates the number of threads that will be used to create chromosomal seqz files for each sample pair
   * `MEMORY` in GB to run Sequenza. The default value is 8 (GB) ans should work for most WES analysis
   * `LOG_FILE` is optional and will keep a record of all the submitted jobs if specified
