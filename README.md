@@ -79,7 +79,7 @@ Same command as above with `-n 1` instead of `-n 0`.
 
 Here are the recommended steps to follow when analyzing paired bam files:
 
-1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):
+1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):<br>
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
 where:
   * `BAM_DIR` refers to the location of the bam files
