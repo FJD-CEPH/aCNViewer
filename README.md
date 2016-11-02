@@ -78,7 +78,9 @@ Same command as above with `-n 1` instead of `-n 0`.
 #####ExampleSequenza: 
 
 Here are the recommended steps to follow when analyzing paired bam files:
+
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):
+
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
 
 where:
@@ -92,16 +94,19 @@ where:
 
 2. run Sequenza with intermediary mpileup file creation and by chromosomes (use this option only if Sequenza is freezing on some chromosomes):
 the command is the same as above with `createMpileUp` set to `1`: `--createMpileUp 1`
+
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
 
 
 3. run Sequenza without intermediary mpileup file creation on the whole bams (not recommended as it is slower than the previous 2 steps):
 the command is the same as in 1 with `byChr` set to 0 or removed from the command:
+
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS [--byChr 0] -M MEMORY [> LOG_FILE]`
 
 
 4. run Sequenza with intermediary mpileup file creation on the whole bams (only if step 1, 2 and 3 failed):
 the command is the same as above with `createMpileUp` set to `1`: `--createMpileUp 1`
+
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS [--byChr 0] -M MEMORY [> LOG_FILE]`
 
 
