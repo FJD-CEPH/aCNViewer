@@ -43,7 +43,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ####Affymetrix
 
-Let's respectively call `DATA_DIR` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
+Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
 
 #####Requirements:
 
@@ -54,20 +54,20 @@ Let's respectively call `DATA_DIR` and `BIN_DIR` the location where respectively
 
 
 #####TestAffy: generate histogram from CEL files with a window size of 2Mbp
-`python aCNViewer.py -f DATA_DIR/snpArrays250k_sty/ -c DATA_DIR/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C DATA_DIR/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile DATA_DIR/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --gcFile DATA_DIR/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l DATA_DIR/snpArrays250k_sty/LibFiles/ --gw6Dir DATA_DIR/snpArrays250k_sty/gw6/`
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 
-Compare generated histograms with the ones in `DATA_DIR/snpArrays250k_sty/expectedResults/test1`
+Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test1`
 
 
 ####Illumina
 
 #####TestIlluminaWithoutNormalization
 
-`python aCNViewer.py -f REPORT_FILE1,...,REPORT_FILEN -c CHR_SIZE_FILE --histogram 1 -u 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE`<br>
+`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -u 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE`<br>
 where:
-  * `REPORT_FILEX` is an Illumina final report that should contain at least the following columns:
+  * `REPORT_FILES` is the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
     - `Sample ID`
     - `Log R Ratio`
@@ -97,7 +97,7 @@ Same command as above with `-n 1` instead of `-n 0`.
 Here are the recommended steps to follow when analyzing paired bam files:
 
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):<br>
-`python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`<br>
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`<br>
 where:
   * `BAM_DIR` refers to the location of the bam files
   * `BAM_FILE_PATTERN` is optional and is used when there are several bams associated to one sample. The default value is ".bam"
@@ -113,27 +113,29 @@ where:
 
 2. run Sequenza with intermediary mpileup file creation and by chromosomes (use this option only if Sequenza is freezing on some chromosomes):
 the command is the same as above with `createMpileUp` set to `1`:<br>
-`python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
 
 
 3. run Sequenza without intermediary mpileup file creation on the whole bams (not recommended as it is slower than the previous 2 steps):
 the command is the same as in 1 with `byChr` set to 0 or removed from the command and without `-n`:<br>
-`python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 [--byChr 0] -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 [--byChr 0] -M MEMORY [> LOG_FILE]`
 
 
 4. run Sequenza with intermediary mpileup file creation on the whole bams (only if step 1, 2 and 3 failed):
 the command is the same as above with `createMpileUp` set to `1`:<br>
-`python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 [--byChr 0] -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 [--byChr 0] -M MEMORY [> LOG_FILE]`
 
 
 
 ###Processing CNV file
 
 ####TestAffy2: generate histogram from ASCAT segment files with a window size of 2Mbp
-`python aCNViewer.py -f DATA_DIR/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c DATA_DIR/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C DATA_DIR/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile DATA_DIR/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 0 --histogram 1 -G "BCLC staging" -u 1 -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
 
-Compare generated histograms with the ones in `DATA_DIR/snpArrays250k_sty/expectedResults/test2`
+Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2`
 
 
-####TestSequenzaCNVs
-`python aCNViewer.py -f SEQUENZA_DIR --fileType Sequenza -c DATA_DIR/wes/hg19.chrom.sizes -t TARGET_DIR --dendrogram 0 --histogram 1 -u 1 -m 1 -C DATA_DIR/wes/centro.txt -w 2000000 -b BIN_DIR`
+####TestSequenzaCNVs: generate histogram from Sequenza results with a window size of 2Mbp
+`python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --dendrogram 0 --histogram 1 -u 1 -m 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
+
+Compare generated histogram with `aCNViewer_TEST_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`
