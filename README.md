@@ -82,12 +82,12 @@ Here are the recommended steps to follow when analyzing paired bam files:
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):
 `python structuralVariantPipeline.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
 where:
-* `BAM_DIR` refers to the location of the bam files
-* `BAM_FILE_PATTERN` is optional and is used when there are several bams associated to one sample. The default value is ".bam"
-* `SAMPLE_FILE` 
-* `NB_THREADS` will set the 
-* `MEMORY` in GB to run Sequenza. The default value is 8 (GB)
-* `LOG_FILE` is optional if you want to keep a record of all the submitted jobs
+  * `BAM_DIR` refers to the location of the bam files
+  * `BAM_FILE_PATTERN` is optional and is used when there are several bams associated to one sample. The default value is ".bam"
+  * `SAMPLE_FILE` 
+  * `NB_THREADS` will set the 
+  * `MEMORY` in GB to run Sequenza. The default value is 8 (GB)
+  * `LOG_FILE` is optional if you want to keep a record of all the submitted jobs
 
 
 2. run Sequenza with intermediary mpileup file creation and by chromosomes (use this option only if Sequenza is freezing on some chromosomes):
