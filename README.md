@@ -254,4 +254,4 @@ where:
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
-![Overview of CNViewer:](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
+![Overview of CNViewer:](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf?raw=true)
