@@ -255,3 +255,9 @@ where:
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
 ![Overview of CNViewer:](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf?raw=true)
+
+<iframe src="http://danonepre.housings.nexica.net/wp-content/uploads/2012/10/danone_informe_sostenibilidad_2011.pdf#zoom=100&view=fitH" frameborder="0" width="655" height="550" marginheight="0" marginwidth="0" id="pdf"  
+></iframe>
+También puedes descargarte el PDF del informe <a href="http://danonepre.housings.nexica.net/wp-content/uploads/2012/10/danone_informe_sostenibilidad_2011.pdf">aquí</a>
+
+
