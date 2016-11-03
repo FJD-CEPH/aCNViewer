@@ -159,8 +159,8 @@ Once Sequenza CNVs have been generated sucessfully, you can proceed to the [grap
 
 Both examples below require to download [aCNViewer_TEST_DATA.tar.gz]().
 
-####TestAffy2: generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp
-
+####TestAffy2
+Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
 `python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
