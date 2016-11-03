@@ -8,10 +8,18 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 - [Overview](#overview)
 - [Usage](#usage)
 - [Tutorial](#tutorial):
+  + Quick start:
+    * [Affymetrix example](#affymetrix)
+    * [ASCAT CNVs example](#testaffy2)
+    * [Sequenza CNVs example](#testsequenzacnvs)
   + [Affymetrix](#affymetrix)
   + [Illumina](#illumina)
   + [NGS](#ngs)
   + [Processing CNV files](#processing-cnv-file)
+  + Other plots:
+    * [Plot heatmaps](#plotheatmaps)
+    * [Plot dendrograms](#plotdendrograms)
+    * [plot all](#plotall)
   
 
 
@@ -55,12 +63,25 @@ Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where r
 
 
 
-#####TestAffy: generate histogram from CEL files with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -G "BCLC stage" -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
+#####TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
+`python aCNViewer.py -f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR`<br>
+where:
+* `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
+* `CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
+* `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+* `CENTROMERE_FILE`: : file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
+* `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
+* `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
+* `GW6_DIR` refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array
+
+Here is an example:
+
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 
-Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test1`
+Compare `OUTPUT_DIR2/lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test1/lrr_baf.segments_merged_hist_2000000nt.png`
 
 
 ####Illumina
@@ -74,8 +95,9 @@ where:
     - `Sample ID`
     - `Log R Ratio`
     - `B Allele Freq`
+  * `CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
   * `CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
-  * `WINDOW_SIZE`: segment size in bp
+  * `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
   * `PROBE_POS_FILE`: file listing the probes used on the SNP array with their genomic position. The file is tab-delimited with the following columns:
     - `Name`
     - `Chr`
@@ -96,7 +118,9 @@ Same command as above with `-n 1` instead of `-n 0`.
 
 #####ExampleSequenza: 
 
-Here are the recommended steps to follow when analyzing paired bam files:
+######CreateSequenzaCNVs
+
+Here are the different options available, with the most relevant option first, to generate Sequenza CNVs when analyzing paired bam files:
 
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):<br>
 `python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`<br>
@@ -127,19 +151,57 @@ the command is the same as in 1 with `byChr` set to 0 or removed from the comman
 the command is the same as above with `createMpileUp` set to `1`:<br>
 `python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 [--byChr 0] -M MEMORY [> LOG_FILE]`
 
+Once Sequenza CNVs have been generated sucessfully, you can proceed to the [graph generation](#testsequenzacnvs).
 
 
 ###Processing CNV file
 
-Both examples require to download aCNViewer_TEST_DATA.tar.gz.
+Both examples below require to download [aCNViewer_TEST_DATA.tar.gz]().
 
-####TestAffy2: generate histogram from ASCAT segment files with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -G "BCLC stage" -m 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR`
+####TestAffy2: generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp
 
-Compare generated histograms with the ones in `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2`
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
+where:
+* `ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
+  + `sample`
+  + `chr`
+  + `startpos`
+  + `endpos`
+  + `nMajor`
+  + `nMinor`
+* <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
+* `CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+
+An example can be found below:
+
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR`
+
+Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
 
 
-####TestSequenzaCNVs: generate histogram from Sequenza results with a window size of 2Mbp
-`python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --histogram 1 -m 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
+####TestSequenzaCNVs: generate quantitative stacked from Sequenza results with a window size of 2Mbp
+`python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
+where:
+* `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+
+An example can be found below:
+
+`python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --histogram 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
 
 Compare generated histogram with `aCNViewer_TEST_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`
+
+
+###Other plots
+
+All the different grapgs below can be generated using the 
+
+####PlotHeatmaps
+
+
+
+
+####PlotDendrograms
+
+####PlotAll
