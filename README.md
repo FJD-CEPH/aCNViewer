@@ -254,4 +254,4 @@ where:
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
-![Overview of CNViewer:](https://docs.google.com/viewer?url=https://raw.githubusercontent.com/degoes-consulting/lambdaconf-2015/master/speakers/jdegoes/intro-purescript/presentation.pdf)
+![Overview of CNViewer:](https://raw.githubusercontent.com/degoes-consulting/lambdaconf-2015/master/speakers/jdegoes/intro-purescript/presentation.pdf)
