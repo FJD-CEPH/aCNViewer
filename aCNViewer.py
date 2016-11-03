@@ -16,6 +16,9 @@ from color import Color
 from coverage import Coverage, OrientedPosition
 
 
+_isCustom = False
+
+
 class RunTQN:
 	def __init__(self, binDir = None):
 		self.__binDir = binDir
@@ -268,10 +271,10 @@ class RunAscat:
 			useShape = False
 			if len(groupSet) <= 5:
 				useShape = True
-			#obj = CNView(windowSize, percentage, self.__binDir, useShape)
+			#obj = aCNViewer(windowSize, percentage, self.__binDir, useShape)
 			#groupDict, group2Dict, colorDict, shapeDict, shapeDict2 = obj._getGroupAndColorCodeDictFromFile(ploidyFile)
 			#obj._createDendrogram(matrixFile, groupDict, colorDict, shapeDict, ploidyFile2, shapeDict2, coeff, keyword = columnName.replace(' ', ''))
-			CNView(windowSize, percentage, self.__binDir, useShape).process(segmentFile, chrFile, targetDir, outFhDict[columnName], histogram = 0, merge = 1, dendrogram = 1, groupColumnName = 'test', keyword = columnName.replace(' ', ''), defaultGroupValue = 'UNKNOWN')
+			aCNViewer(windowSize, percentage, self.__binDir, useShape).process(segmentFile, chrFile, targetDir, outFhDict[columnName], histogram = 0, merge = 1, dendrogram = 1, groupColumnName = 'test', keyword = columnName.replace(' ', ''), defaultGroupValue = 'UNKNOWN')
 			#break
 	
 	def __getSampleDictFromFh(self, fh, sampleIdx):
@@ -420,7 +423,10 @@ class RunAscat:
 				#print 'Passing sample %s' % sampleName
 				#continue
 			ploidy = float(splittedLine[1])
-			outFh.write([splittedLine[0], self.__getApproximatedPloidy(ploidy), sampleToGroupDict.get(sampleName, '')])
+			lineToWrite = [splittedLine[0], self.__getApproximatedPloidy(ploidy), sampleToGroupDict.get(sampleName, '')]
+			if len(lineToWrite) != len(header):
+				raise NotImplementedError
+			outFh.write(lineToWrite)
 		
 	def _getSampleDictFromFile(self, sampleAliasFile):
 		sampleDict = {}
@@ -518,9 +524,7 @@ class RunAscat:
 		Utilities()._runFunc(Utilities.mySystem, [cmd], snpPosFile)
 		print len(tumorSampleList), len(normalSampleList), len(idxDict['Tumor']['LogR']), len(idxDict['Tumor']['BAF']), len(idxDict['Normal']['LogR']), len(idxDict['Normal']['BAF'])
 		baseName = '.'.join(lrrBafFile.split('.')[:-1])
-		libStr = ''
-		if self.__rLibDir:
-			libStr = ', lib.loc = "%s"' % self.__rLibDir
+		libStr = R(libDir = self.__rLibDir).getLibStr()
 		rStr = '''X11.options(colortype="pseudo.cube")
 
 baseName <- "%s"
@@ -733,12 +737,6 @@ save.image(paste(baseName,".RData",sep=""))
 		Utilities()._runFunc(Utilities.mySystem, [cmd], os.path.join(celDirName, 'step1.4'))
 		return lrrBafFile
 	
-	def __convertIlluminaFinalReportIntoLrrBafFile(self, fileName):
-		return
-	
-	def _getLrrBafFileFromIlluminaFinalReports(self, dirName):
-		return
-	
 	def __checkAndInstallRpackagesIfNecessary(self, rDir):
 		#RColorBrewer
 		if R(rDir).isPackageInstalled('ASCAT'):
@@ -935,6 +933,11 @@ save.image(paste(baseName,".RData",sep=""))
 	
 	def _createMergedIlluminaFinalReports(self, fileList, snpFile, outFileName, targetDir = None, sampleList = None, normalize = True):
 		snpDict = defaultdict(dict)
+		if sampleList and (type(sampleList) == types.StringType and os.path.isfile(sampleList)):
+			if Utilities.getFileExtension(sampleList) == 'pyDump':
+				sampleList = Utilities.loadCache(sampleList)
+			else:
+				sampleList = open(sampleList).read().strip().split()
 		#sampleList = []
 		fileToMergeList = []
 		for fileName in fileList:
@@ -953,6 +956,8 @@ save.image(paste(baseName,".RData",sep=""))
 	def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile, platform, libDir = None, gw6Dir = None, snpFile = None, normalize = True, sampleList = None):
 		if ',' in lrrBafFile:
 			lrrBafFile = lrrBafFile.split(',')
+		if os.path.isfile(lrrBafFile):
+			lrrBafFile = [lrrBafFile]
 		if type(lrrBafFile) == types.ListType:
 			outFileName = os.path.join(os.path.dirname(lrrBafFile[0]), 'lrrBaf_%d.txt' % int(normalize))
 			Utilities()._runFunc(self._createMergedIlluminaFinalReports, [lrrBafFile, snpFile, outFileName, None, sampleList, normalize], outFileName)
@@ -962,6 +967,7 @@ save.image(paste(baseName,".RData",sep=""))
 			if self.__doesDirContainAffymetrixData(lrrBafFile):
 				lrrBafFile = Utilities.getFunctionResultWithCache(os.path.join(lrrBafFile, 'pennCNV.pyDump'), self._runPennCnvAndGetLrrBafFile, lrrBafFile, libDir, gw6Dir, platform)
 			else:
+				fileList = [fileName.strip() for fileName in os.popen('find %s -follow -name "*FinalReport.txt"' % lrrBafFile)]
 				outFileName = os.path.join(lrrBafFile, 'lrrBaf_%d.txt' % int(normalize))
 				Utilities()._runFunc(self._createMergedIlluminaFinalReports, [fileList, snpFile, outFileName, None, sampleList, normalize], outFileName)
 				lrrBafFile = outFileName
@@ -975,8 +981,289 @@ save.image(paste(baseName,".RData",sep=""))
 		Utilities()._runFunc(R(rDir).runScript, [rFileName], ascatFile)
 		return ascatFile
 
+	
+from FileHandler import ParseFastaFile, MergeAnnotationFiles
 
-class CNView:
+class RunSequenza:
+	def __init__(self, binDir = None, rLibDir = None, nbCpus = None, memory = None):
+		self.__binDir = binDir
+		self.__rLibDir = rLibDir
+		if not nbCpus:
+			nbCpus = 1
+		self.__nbCpus = nbCpus
+		self.__binStr = ''
+		if binDir and os.path.isfile(os.path.join(binDir, 'python')):
+			self.__binStr = binDir + os.path.sep
+		self.__memory = memory
+	
+	def __getCreateMpileUpFile(self, bamFile, refFile, mpileUpFile, chrName = None):
+		optionStr = ''
+		if chrName:
+			optionStr = '-r %s' % chrName
+		cmd = '%s mpileup -f %s -Q 20 %s %s | gzip > %s' % (os.path.join(self.__binDir, 'samtools'), refFile, optionStr, bamFile, mpileUpFile)		
+		return cmd
+	
+	def _createMpileUpFile(self, bamFile, refFile, mpileUpFile, chrName = None):
+		cmd = self.__getCreateMpileUpFile(bamFile, refFile, mpileUpFile, chrName)
+		Utilities.mySystem(cmd)
+
+	def __getBamDictFromDirAndPattern(self, bamDir, pattern):
+		bamDict = {}
+		for bamFile in os.popen('find %s -follow -name "*%s"' % (bamDir, pattern)):
+			bamFile = bamFile.strip()
+			#sampleName, fcName, uplex = IlluminaRun().getSampleNameRunNameAndUplexFromPath(bamFile)
+			sampleName = os.path.basename(bamFile).split('.')[0]
+			bamDict[sampleName] = bamFile
+		return bamDict
+	
+	def __appendMpileUpCreation(self, bamFile, refFile, cmdList):
+		mpileUpFile = FileNameGetter(bamFile).get('pileup.gz')
+		cmdList.append((bamFile, mpileUpFile, Cmd('python %s -P mpileUp -f %s -o %s -r %s' % (os.path.abspath(__file__), bamFile, mpileUpFile, refFile))))
+		return mpileUpFile
+	
+	def __getSequenzaUtils(self):
+		for rLibraryDir in R(self.__binDir, libDir = self.__rLibDir).getLibraryPathList():
+			fileName = os.path.join(rLibraryDir, 'sequenza', 'exec', 'sequenza-utils.py')
+			if os.path.isfile(fileName):
+				return fileName
+		raise NotImplementedError('sequenza does not seem to be installed')
+		
+	def _createGcFile(self, refFile):
+		cmd = '%spython %s GC-windows -w 50 %s | gzip > %s' % (self.__binStr, self.__getSequenzaUtils(), refFile, self.__getGcFileFromFasta(refFile))
+		Utilities.mySystem(cmd)
+	
+	def __getGcFileFromFasta(self, refFile):
+		return FileNameGetter(refFile).get('gc50Base.txt.gz')
+		
+	def __appendGcFileCreation(self, refFile, cmdList):
+		gcFile = self.__getGcFileFromFasta(refFile)
+		cmdList.append((refFile, gcFile, Cmd('python %s -P gc -r %s' % (os.path.abspath(__file__), refFile))))
+		return gcFile
+	
+	def __appendSeqzFileCreation(self, tumorBam, normalBam, refFile, gcFile, cmdList, targetDir, createPileUp, byChr):
+		outFileName = os.path.join(targetDir, '%s_%s.seqz.gz' % (os.path.basename(tumorBam).split('.')[0], os.path.basename(normalBam).split('.')[0]))
+		cmd = 'python %s -P seqz --normalBam %s --tumorBam %s -r %s --gcFile %s --targetDir %s --createMpileUp %d --byChr %d' % (os.path.abspath(__file__), normalBam, tumorBam,  refFile, gcFile, outFileName, int(createPileUp), int(byChr))
+		if self.__binDir:
+			cmd += ' -b %s' % self.__binDir
+		if self.__nbCpus:
+			cmd += ' -n %d' % self.__nbCpus
+		memory = 10
+		if self.__nbCpus:
+			memory *= self.__nbCpus
+		cmdList.append((gcFile, outFileName, Cmd(cmd, memory = memory, nbCpus = max(1, self.__nbCpus))))
+		return outFileName
+	
+	def _getIdvdNameSampleNameAndPatientTypeFromLine(self, splittedLine, returnAlsoOriginalSampleName = False):
+		idvdName, sampleName, seqFile, patientType = splittedLine[:4]
+		originalSampleName = sampleName
+		sampleName2 = seqFile.split('_')[1]
+		if sampleName != sampleName2:
+			sampleName = sampleName2
+		if returnAlsoOriginalSampleName:
+			return idvdName, sampleName, patientType, originalSampleName
+		return idvdName, sampleName, patientType
+	
+	def _getIdvdToPairDictFromFile(self, fileName):
+		fh = ReadFileAtOnceParser(fileName)
+		header = fh.getSplittedLine()
+		idvdDict = defaultdict(list)
+		for splittedLine in fh:
+			idvdName, sampleName, patientType = self._getIdvdNameSampleNameAndPatientTypeFromLine(splittedLine)
+			if sampleName not in idvdDict[(idvdName, patientType)]:
+				idvdDict[(idvdName, patientType)].append(sampleName)
+		return idvdDict
+	
+	def __convertSegmentFileIntoAscatFormat(self, fileName, outFileName):
+		fh = ReadFileAtOnceParser(fileName)
+		header = fh.getSplittedLine()
+		aIdx = header.index('"A"')
+		bIdx = header.index('"B"')
+		outFh = CsvFileWriter(outFileName)
+		sampleName = os.path.basename(fileName).split('_')[0]
+		for splittedLine in fh:
+			outFh.write([sampleName, splittedLine[0].strip('"')] + splittedLine[1:3] + [splittedLine[aIdx], splittedLine[bIdx]])
+	
+	def _createAscatFileFromSegmentFiles(self, dirName):
+		outFileList = []
+		for fileName in os.popen('find %s -follow -name "*_segments.txt"' % dirName):#in glob.glob(os.path.join(dirName, '*', '*_segments.txt')):
+			fileName = fileName.strip()
+			print 'Converting file "%s" into ASCAT format' % fileName
+			outFileName = FileNameGetter(fileName).get('_ascat.txt')
+			Utilities()._runFunc(self.__convertSegmentFileIntoAscatFormat, [fileName, outFileName], outFileName)
+			outFileList.append(outFileName)
+		outFileName = os.path.join(dirName, 'ascat.txt')
+		outFh = CsvFileWriter(outFileName)
+		outFh.write(['sample', 'chr', 'startpos', 'endpos', 'nMajor', 'nMinor'])
+		outFh.close()
+		cmd = "cat %s >> %s" % (' '.join(outFileList), outFileName)
+		Utilities.mySystem(cmd)
+		return outFileName
+	
+	def __appendAscatFileCreation(self, dirName, cmdList):
+		cmd = 'python %s -P createAscatFile -d %s' % (os.path.abspath(__file__), dirName)
+		cmdList.append((dirName, os.path.join(dirName, 'ascat'), cmd))
+	
+	def __installSequenzaIfNecessary(self):
+		r = R(self.__binDir, libDir = self.__rLibDir)
+		if r.isPackageInstalled('sequenza'):
+			return
+		if not r.isPackageInstalled('squash'):
+			try:
+				r.installPackage('squash')
+			except:
+				r.installPackageFromUrl('https://cran.r-project.org/web/packages/squash/')
+		if not r.isPackageInstalled('copynumber'):
+			r._execString("source('http://bioconductor.org/biocLite.R'); biocLite('copynumber')")
+		try:
+			r.installPackage('sequenza')
+		except:
+			r.installPackageFromUrl('https://cran.r-project.org/web/packages/sequenza/index.html')
+		
+	def _runSequenza(self, seqzFile, chrName = None):
+		rStr = '''library(sequenza)
+
+seqz.data <- read.seqz("%(seqzFile)s", chr.name = "%(chrName)s")
+gc.stats <- gc.norm(x = seqz.data$depth.r+atio, gc = seqz.data$GC.percent)
+gc.vect  <- setNames(gc.stats$raw.mean, gc.stats$gc.values)
+seqz.data$adjusted.ratio <- seqz.data$depth.ratio / gc.vect[as.character(seqz.data$GC.percent)]
+
+png("%(imgFile)s", width=4000, height=1800, res=300)
+par(mfrow = c(1,2), cex = 1, las = 1, bty ='l')
+matplot(gc.stats$gc.values, gc.stats$raw, type ='b', col = 1, pch = c(1, 19, 1), lty = c(2, 1, 2), xlab ='GC content (%%)', ylab ='Uncorrected depth ratio')
+legend('topright', legend = colnames(gc.stats$raw), pch = c(1, 19, 1))
+hist2(seqz.data$depth.ratio, seqz.data$adjusted.ratio, breaks = prettyLog, key = vkey, panel.first = abline(0, 1, lty = 2), xlab ='Uncorrected depth ratio', ylab = 'GC-adjusted depth ratio')
+dev.off()
+
+chromosome.view(mut.tab = test$mutations[[1]], baf.windows = test$BAF[[1]],
+                 ratio.windows = test$ratio[[1]], min.N.ratio = 1,
+                 segments = test$segments[[1]], main = test$chromosomes[1])
+''' % {'chrName': chrName, 'imgFile': FileNameGetter(seqzFile).get('_raw_%s.png' % chrName), 'seqzFile': seqzFile}
+		
+		
+		sampleName = os.path.basename(seqzFile).split('.')[0]
+		rStr = '''library(sequenza)
+
+test <- sequenza.extract("%(seqzFile)s", chromosome.list = 1:22)
+png("%(imgFile)s", width=4000, height=1800, res=300)
+chromosome.view(mut.tab = test$mutations[[1]], baf.windows = test$BAF[[1]],
+                 ratio.windows = test$ratio[[1]], min.N.ratio = 1,
+                 segments = test$segments[[1]], main = test$chromosomes[1])
+dev.off()
+
+CP.example <- sequenza.fit(test)
+sequenza.results(sequenza.extract = test, cp.table = CP.example,
+                  sample.id = "%(sampleName)s", out.dir="%(outputDir)s")
+
+''' % {'chrName': chrName, 'imgFile': FileNameGetter(seqzFile).get('png'), 'seqzFile': seqzFile, 'sampleName': sampleName, 'outputDir': os.path.join(os.path.dirname(seqzFile), sampleName)}
+		R(self.__binDir, libDir = self.__rLibDir).runCmd(rStr, FileNameGetter(seqzFile).get('R'))
+	
+	def __appendSequenza(self, seqzFile, byChr, refFile, cmdList):
+		#for chrName in self.__getChrList(refFile, byChr):
+		memory = 8
+		if self.__memory:
+			memory = self.__memory
+		for chrName in [None]:
+			currentOutFileName = seqzFile
+			if chrName:
+				currentOutFileName = seqzFile.replace('.seqz.gz', '_%s.seqz.gz' % chrName)
+			cmd = 'python %s -P seqzR --fileName [input] --chrName %s' % (os.path.abspath(__file__), chrName)
+			if self.__binDir:
+				cmd += ' -b %s' % self.__binDir
+			cmdList.append((currentOutFileName, FileNameGetter(currentOutFileName).get('R'), Cmd(cmd, memory = memory)))
+		
+	def __createSeqzFile(self, tumorBam, normalBam, refFile, gcFile, outFileName, createPileUp, chrName):
+		suffix = ''
+		progName = 'bam2seqz'
+		optionStr = ' -F %s' % refFile
+		if chrName:
+			suffix = '_%s' %chrName
+			optionStr += ' -C %s' % chrName
+		if createPileUp:
+			cluster = ThreadManager(2)
+			tumorPileUp = FileNameGetter(tumorBam).get('pileUp%s.gz' % suffix)
+			normalPileUp = FileNameGetter(normalBam).get('pileUp%s.gz' % suffix)
+			cluster.submit(Utilities()._runFunc, Utilities.mySystem, [self.__getCreateMpileUpFile(tumorBam, refFile, tumorPileUp, chrName)], tumorPileUp)
+			cluster.submit(Utilities()._runFunc, Utilities.mySystem, [self.__getCreateMpileUpFile(normalBam, refFile, normalPileUp, chrName)], normalPileUp)
+			cluster.wait()
+			normalBam = normalPileUp
+			tumorBam = tumorPileUp
+			progName = 'pileup2seqz'
+			optionStr = ''
+		scriptFile = FileNameGetter(outFileName).get('sh')
+		cmd = '%spython %s %s -n %s -t %s -gc %s %s | gzip -c > %s' % (self.__binStr, self.__getSequenzaUtils(), progName, normalBam, tumorBam, gcFile, optionStr, outFileName)
+		Utilities.mySystem(cmd, scriptFile)
+		if createPileUp:
+			Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
+	
+	def __getChrList(self, refFile, byChr = False):
+		chrList = [None]
+		if byChr:
+			chrList = list(ParseFastaFile(refFile)._getSequenceNameListFromFile(True))
+			chrList.sort()
+			if chrList[0][:3] == 'chr':
+				chrList = ['chr%s' % chrName for chrName in range(1, 23)]
+			else:
+				chrList = range(1, 23)
+		chrList.reverse()
+		return chrList
+	
+	def __mergeSeqzFilesAndClean(self, outFileName, refFile):
+		MergeAnnotationFiles().process(outFileName.replace('.seqz.gz', '_%s.seqz.gz'), outFileName, refFile, True)
+		Utilities.mySystem('rm %s' % outFileName.replace('.seqz.gz', '_*.seqz.gz'))
+	
+	def _createSeqzFile(self, tumorBam, normalBam, refFile, gcFile, outFileName, createPileUp = False, byChr = False):
+		chrList = self.__getChrList(refFile, byChr)
+		cluster = ThreadManager(self.__nbCpus)
+		for chrName in chrList:
+			currentOutFileName = outFileName
+			if chrName:
+				currentOutFileName = outFileName.replace('.seqz.gz', '_%s.seqz.gz' % chrName)
+			cluster.submit(Utilities()._runFunc, self.__createSeqzFile, [tumorBam, normalBam, refFile, gcFile, currentOutFileName, createPileUp, chrName], currentOutFileName)
+		cluster.wait()
+		if byChr:
+			Utilities()._runFunc(self.__mergeSeqzFilesAndClean, [outFileName, refFile], outFileName)
+			
+		
+	def __getTumorAndNormalSampleListFromFile(self, sampleFile):
+		idvdDict = self._getIdvdToPairDictFromFile(sampleFile)
+		pairList = []
+		for (idvdName, patientType), sampleList in idvdDict.iteritems():
+			if patientType == 'N':
+				continue
+			normalSampleList = idvdDict[(idvdName, 'N')]
+			if len(normalSampleList) != 1:
+				#print idvdName, sampleList, normalSampleList
+				print normalSampleList, idvdName, sampleList, idvdDict
+				raise NotImplementedError
+			for tumorSample in sampleList:
+				pairList.append((tumorSample, normalSampleList[0]))
+		return pairList
+		
+	def process(self, sampleFile, dirName, pattern, targetDir, refFile, createPileUp = False, byChr = False):
+		bamDict = Utilities.getFunctionResultWithCache(os.path.join(dirName, 'bamDictSequenza.pyDump'), self.__getBamDictFromDirAndPattern, dirName, pattern)
+		Utilities.mySystem('mkdir -p %s' % targetDir)
+		if not os.path.isfile(sampleFile):
+			sampleFile = sampleFile.split(',')
+		if type(sampleFile) == types.ListType:
+			sampleList = [tuple(sampleName.split(';')) for sampleName in sampleFile]
+		else:
+			sampleList = self.__getTumorAndNormalSampleListFromFile(sampleFile)
+		cmdList = []
+		gcFile = self.__appendGcFileCreation(refFile, cmdList)
+		for tumorSample, normalSample in sampleList:
+			tumorBam = bamDict[tumorSample]
+			normalBam = bamDict[normalSample]
+			#self.__appendMpileUpCreation(tumorBam, refFile, cmdList)
+			#self.__appendMpileUpCreation(normalBam, refFile, cmdList)
+			seqzFile = self.__appendSeqzFileCreation(tumorBam, normalBam, refFile, gcFile, cmdList, targetDir, createPileUp, byChr)
+			self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
+		if not AnalyseSampleFastQFileBase(binDir = self.__binDir)._runCmdList(cmdList, refFile, cluster = guessHpc()):
+			cmdList = []
+			self.__appendAscatFileCreation(targetDir, cmdList)
+			AnalyseSampleFastQFileBase(binDir = self.__binDir)._runCmdList(cmdList, refFile, cluster = guessHpc())
+	
+
+class aCNViewer:
 	def __init__(self, windowSize, percent, binDir = None, useShape = False, sampleFile = None, sampleAliasFile = None, groupColumnName = None, rLibDir = None):
 		self.__windowSize = windowSize
 		self.__percent = percent
@@ -991,7 +1278,8 @@ class CNView:
 		self.__sampleDict = None
 		if sampleAliasFile:
 			self.__sampleDict = RunAscat()._getSampleDictFromFile(sampleAliasFile)
-		if sampleFile:
+		self.__sampleToGroupDict = None
+		if sampleFile and groupColumnName:
 			self.__sampleToGroupDict = RunAscat()._getSampleToGroupDictFromFile(sampleFile, groupColumnName, self.__sampleDict)
 		if rLibDir:
 			rLibDir = os.path.abspath(rLibDir)
@@ -1092,6 +1380,8 @@ class CNView:
 			start = int(splittedLine[2])
 			end = int(splittedLine[3])
 			fragSize = end - start + 1
+			if 'NA' in splittedLine[4:6]:
+				continue
 			ploidy = int(splittedLine[4]) + int(splittedLine[5])
 			fragDict[ploidy] += fragSize
 			#valueList.append(ploidy)
@@ -1404,7 +1694,7 @@ class CNView:
 			self.__suffix = str(self.__percent) + 'pc'
 		ploidyDict = DefaultPloidyDict()
 		if ploidyFile:
-			ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
+			ploidyDict = self._getPloidyDictFromFile(ploidyFile)
 		#print ascatFile, len(ploidyDict), ploidyDict
 		Utilities.mySystem('mkdir -p %s' % targetDir)
 		chrSizeDict = self.__getChrSizeDictFromFile(chrFile)
@@ -1441,7 +1731,7 @@ class CNView:
 			baseDict[sampleName] += nbBases
 			ploidyDict[sampleName] += (int(nMajor) + int(nMajor)) * nbBases
 		if ploidyFile:
-			otherPloidyDict = self.__getPloidyDictFromFile(ploidyFile)
+			otherPloidyDict = self._getPloidyDictFromFile(ploidyFile)
 		nbErrors = 0
 		for sampleName in Utilities.getOrderedKeys(ploidyDict):
 			ploidy = ploidyDict[sampleName]
@@ -1459,7 +1749,7 @@ class CNView:
 		
 	def _createPloidyFile(self, ascatFile, chrFile, targetDir, ploidyFile, centromereFile = None, mergeCentromereSegments = None, otherPloidyFile = None):
 		outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = self.__createMatrixFileAndGetDicts(ascatFile, chrFile, targetDir, ploidyFile, centromereFile, mergeCentromereSegments)
-		matrixFile = self.__createMatrixFile(matrixDict, targetDir, None, ploidyFile)
+		matrixFile = self.__createMatrixFile(matrixDict, targetDir, os.path.basename(ascatFile).split('.')[0], ploidyFile)
 		print 'Matrix file: ', matrixFile
 		fh = ReadFileAtOnceParser(matrixFile)
 		targetFileName = FileNameGetter(outFileName).get('_ploidy.txt')
@@ -1467,11 +1757,11 @@ class CNView:
 		header = fh.getSplittedLine()
 		nbErrors = 0
 		header += ['ploidy']
-		if self.__sampleFile:
+		if self.__sampleFile and self.__sampleToGroupDict:
 			header += ['group']
 		outFh.write(header)
 		if otherPloidyFile:
-			otherPloidyDict = self.__getPloidyDictFromFile(otherPloidyFile)
+			otherPloidyDict = self._getPloidyDictFromFile(otherPloidyFile)
 		for splittedLine in fh:
 			ploidy = self.__calculatePloidyFromLine(splittedLine)
 			sampleName = splittedLine[0]
@@ -1483,7 +1773,7 @@ class CNView:
 				#else:
 					#print 'Ok for sample %s' % splittedLine[0]
 			splittedLine += [ploidy]
-			if self.__sampleFile:
+			if self.__sampleFile and self.__sampleToGroupDict:
 				splittedLine += [self.__sampleToGroupDict.get(sampleName, '')]
 			outFh.write(splittedLine)
 		if otherPloidyFile:
@@ -1494,7 +1784,7 @@ class CNView:
 		segmentList[:] = self.__cutSegmentsAccordingToStep(segmentList, chrName)
 		#segmentDict = 
 				
-	def __getSegmentLineListFromLineDict(self, lineDict, sampleName, chrSizeDict, defaultPloidy = 2, centromereDict = None, isLoh = False, mergeCentromereSegments = False):
+	def _getSegmentLineListFromLineDict(self, lineDict, sampleName, chrSizeDict, defaultPloidy = 2, centromereDict = None, isLoh = False, mergeCentromereSegments = False):
 		segmentList = []
 		nbExpectedSegments = None
 		if self.__percent:
@@ -1507,7 +1797,7 @@ class CNView:
 			#print 'Chr %s' % chrName
 			#print len(chrLineList)
 			if not chrLineList:
-				continue
+				chrLineList = [[1, chrSizeDict[str(chrName)], defaultPloidy, 0]]
 			#if isLoh and centromereDict:
 				#if 'P51T' in sampleName:
 					#print '@' * 100
@@ -1569,7 +1859,6 @@ class CNView:
 	def __createSegmentPloidyFile(self, ascatFile, chrSizeDict, targetDir, ploidyDict, centromereDict = None, mergeCentromereSegments = False):
 		fh = ReadFileAtOnceParser(ascatFile)
 		header = fh.getSplittedLine()
-		print ascatFile
 		outFileName = os.path.join(targetDir, os.path.basename(ascatFile).split('.')[0] + '_segments_%s.txt' % self.__suffix)
 		outFh = CsvFileWriter(outFileName)
 		matrixDict = {}
@@ -1581,7 +1870,8 @@ class CNView:
 				print 'Passing sample %s' % sampleName
 				continue
 			print 'Processing sample %s with ploidy %d' % (sampleName, defaultPloidy)
-			segmentList = self.__getSegmentLineListFromLineDict(lineDict, sampleName, chrSizeDict, defaultPloidy, centromereDict, isLoh, mergeCentromereSegments)
+			segmentList = self._getSegmentLineListFromLineDict(lineDict, sampleName, chrSizeDict, defaultPloidy, centromereDict, isLoh, mergeCentromereSegments)
+			
 			outFh.writeAllLinesAtOnce(segmentList)
 			matrixDict[sampleName.split('.')[0]] = [['%s:%d-%d' % (chrName, start, end), alleleNb] for currentSampleName, chrName, start, end, alleleNb in segmentList]
 		return outFileName, matrixDict
@@ -1602,7 +1892,7 @@ class CNView:
 				if abs(int(splittedLine1[-1]) - int(splittedLine2[-1])) > 1:
 					print 'difference', splittedLine1[:2], splittedLine2[:2], splittedLine1[-2:], splittedLine2[-2:]
 	
-	def __getPloidyDictFromFile(self, fileName):
+	def _getPloidyDictFromFile(self, fileName):
 		ploidyDict = {}
 		fh = ReadFileAtOnceParser(fileName)
 		header = fh.getSplittedLine()
@@ -1758,7 +2048,7 @@ class CNView:
 			outFh2.write([sampleName])
 		
 	def __createHistRscriptFile(self, targetDir, keyword, histDataFile, maxValue, lohHistFileName, centromereDict):
-		print 'MAX = [%f]' % maxValue
+		#print 'MAX = [%f]' % maxValue
 		#print lohPointList
 		maxValue = min(100, maxValue + 5)
 		lohStr = lohGraphStr = ''
@@ -1871,10 +2161,11 @@ class CNView:
 	
 	def __getShapeList(self, getRcode = False):
 		# check http://www.endmemo.com/program/R/pchsymbols.php for full list of R shapes
-		shapeDict = {'diamond': 18, 'circle': 16, 'triangle': 17, 'square': 15, 'triangle2': 25}#, 'plus': 3, 'cross': 4, 'star': 8}
+		#shapeDict = {'diamond': 18, 'circle': 16, 'triangle': 17, 'square': 15, 'triangle2': 25}#, 'plus': 3, 'cross': 4, 'star': 8}
+		shapeList = [('diamond', 18), ('circle', 16), ('triangle', 17), ('square', 15), ('triangle2', 25)]
 		if getRcode:
-			return shapeDict.values()
-		return shapeDict.keys()
+			return [shapeCode for shapeName, shapeCode in shapeList]
+		return [shapeName for shapeName, shapeCode in shapeList]
 	
 	def _getGroupAndColorCodeDictFromFile(self, fileName, defaultGroupValue = None):
 		fh = ReadFileAtOnceParser(fileName)
@@ -1910,7 +2201,8 @@ class CNView:
 		else:
 			groupList = groupDict.keys()
 			colorDict = dict([[groupList[i], color] for i, color in enumerate(Color().getColorList(len(groupList)))])
-			shapeDict = dict([[groupList[i], marker] for i, marker in enumerate(self.__getShapeList()[:len(groupList)])])
+			#shapeDict = dict([[groupList[i], marker] for i, marker in enumerate(self.__getShapeList()[:len(groupList)])])
+			shapeDict = dict([[groupName, self.__getShapeList()[i%len(groupList)]] for i, groupName in enumerate(groupList)])
 			shapeList = self.__getShapeList(True)[:len(groupList)]
 			shapeDict2 = dict([[groupList[i], shape] for i, shape in enumerate(shapeList)])
 		return groupDict, group2Dict, colorDict, shapeDict, shapeDict2
@@ -1919,7 +2211,7 @@ class CNView:
 		fh = ReadFileAtOnceParser(fileName)
 		outFh = CsvFileWriter(fileName + '_lohNeutral.txt')
 		outFh.write(fh.getSplittedLine())
-		ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
+		ploidyDict = self._getPloidyDictFromFile(ploidyFile)
 		segmentList = []
 		for splittedLine in fh:
 			sampleName = splittedLine[0].split('.')[0]
@@ -1929,6 +2221,8 @@ class CNView:
 				print 'Passing sample %s' % sampleName
 				continue
 			ploidy = ploidyDict[sampleName]
+			if splittedLine[-1] == 'NA':
+				continue
 			nMin = float(splittedLine[-1])
 			nMaj = float(splittedLine[-2])
 			if (nMaj, nMin) in [(-ploidy, 0), (ploidy, 0)]:
@@ -1939,15 +2233,433 @@ class CNView:
 		if not write:
 			return segmentList
 	
-	def _createDendrogram(self, matrixFile, groupDict, colorDict, shapeDict, ploidyFile2, shapeDict2, coeff, keyword = None, defaultEmptyValue = None):
+		
+	def __getGroupStrColSideColorsStrAndLegendStrForHeatmap(self, groupDict, groupColumnName = None, idx = None, groupList = None):
+		if not groupDict:
+			return '', '', ''
+		if groupColumnName is None:
+			groupColumnName = self.__groupColumnName
+		colorList = Color().getColorList(len(set(groupDict.values())))
+		groupStr = 'colorDict <- list('
+		legendList = []
+		legendColorList = []
+		if not groupList:
+			groupList = groupDict.keys()
+		for i, groupName in enumerate(groupList):
+			color = colorList[i]
+			legendList.append(groupName)
+			legendColorList.append(color)
+			for sampleName in groupDict.getall(groupName):
+				groupStr += '%s = "%s", ' % (sampleName, color)
+		groupStr = groupStr[:-2] + ')\n\n'
+		if idx is None:
+			idx = ''
+		groupStr += '''colColorList%(idx)s <- c()
+for (sampleName in rownames(a)){
+	colColorList%(idx)s <- c(colColorList%(idx)s, colorDict[[sampleName]])
+}''' % {'idx': ''}
+		legendStr = '''legend("topright", xpd=TRUE,     # location of the legend on the heatmap plot
+    legend = %s, xpd=TRUE, # category labels
+    col = %s,  # color key
+    lty= 1,             # line style
+    lwd = 5,            # line width
+    title = "%s")
+
+''' % (R()._getStrFromList(legendList), R()._getStrFromList(legendColorList), groupColumnName)
+		if idx == '':
+			return groupStr, ', ColSideColors = colColorList, lhei = c(2.5, 5)', legendStr
+		return groupStr, ', ColSideColors = colColorList, lhei = c(2.5, 5)', legendStr, legendList, legendColorList
+		
+	def __getCoordinateFromStr(self, posStr, defaultPosition):
+		if not posStr:
+			posStr = defaultPosition
+		if ',' in posStr:
+			posStr = [float(value.strip()) for value in posStr.split(',')]
+			if len(posStr) != 2:
+				raise NotImplementedError('Expecting coordinates to be 2 values but found %d: %s' % (len(posStr), str(posStr)))
+			posStr = '{0}, {1}'.format(*posStr)
+		else:
+			posStr.strip('"')
+			posStr = '"%s"' % posStr
+		return posStr
+	
+	def __getRowSideColorsStr(self, chrLegendPos):
+		#colorList = Color().getColorList(22)
+		#colorList.sort()
+		#print colorList
+		chrLegendPosStr = self.__getCoordinateFromStr(chrLegendPos, 'bottomleft')
+		colorList = ["#82E291", "#03FE35", "#05C523", "#079C01", "#0C5234", "#0E2912", "#897F92", "#87A8B4", "#4DCBF4", "#4F92E2", "#4179C0", "#463FE3", "#4806D1", "#8B4680", "#801CA3", "#8E35C5", "#C81285", "#C52340", "#C35C52", "#C18574", "#CAE863", "#CCBF41"]
+		rStr = 'rowColorDict <- list('
+		legendList = []
+		legendColorList = []
+		for i, chrName in enumerate(range(1, 23)):
+			color = colorList[i]
+			rStr += 'X%s = "%s", ' % (chrName, color)
+			legendList.append(str(chrName))
+			legendColorList.append(color)
+		rStr = rStr[:-2] + ')\n\n'
+		rStr += '''rowColorList <- c()
+for (pos in colnames(a)){
+	partList <- strsplit(pos, "[.]")
+	rowColorList <- c(rowColorList, rowColorDict[[partList[[1]][1]]])
+}'''
+		legendStr = '''legend(%s,      # location of the legend on the heatmap plot
+    legend = %s, # category labels
+    col = %s,  # color key
+    lty= 1,             # line style
+    lwd = 5,            # line width
+	title = "Chromosomes", box.lty = 0)''' % (chrLegendPosStr, R()._getStrFromList(legendList), R()._getStrFromList(legendColorList))
+		return rStr, legendStr
+	
+	def __createHeatmap2(self, matrixFile, hclustStr, height, width, cexRow, cexCol, margins, labRowStr, labColStr, groupDict, hclust, groupLegendPos, chrLegendPos):
+		#groupStr, colColorStr, legendStr = self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(groupDict)
+		groupStr = self.__getColorRstr(matrixFile, hclust)
+		rowSideStr, rowLegendStr = self.__getRowSideColorsStr(chrLegendPos)
+		rowColorStr = ', RowSideColors = rowColorList'
+		#labRow = %(labRow)s, labCol = %(labCol)s
+		groupLegendPosStr = self.__getCoordinateFromStr(groupLegendPos, 'topright')
+		rStr = '''library("RColorBrewer")
+library("gplots")
+
+source("%(dirName)s/heatmap.2.2.R")
+
+a<-(as.matrix(read.csv2("%(inputFile)s", h=T, row.names=1, sep = "\t")))
+
+hr <- hclust(dist(t(a)))
+hc <- hclust(dist(a))
+
+%(groupStr)s
+
+%(rowSideStr)s
+
+for (colColorList in allColColorList){
+	print(paste("Generating heatmap for colName <", colColorList$title, ">"))
+	pdf(colColorList$outFileName, height=%(height)d, width=%(width)d)
+	#heatmap.2(t(a), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc), margins=%(marginStr)s, key=TRUE, symkey=FALSE, density.info="histogram", denscol="black", trace="none", scale="none", col=c(c("red", "orange", "yellow", "green", "deepskyblue", "blue", "purple3", "magenta", "orchid1"), rep("black", max(a)-8)), cexRow=%(cexRow)f, cexCol=%(cexCol)f, ColSideColors = colColorList$colColorList%(hclustStr)s%(labRowStr)s%(labColStr)s%(rowColorStr)s)
+	
+	heatmap.2.1(t(a), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc), margins=%(marginStr)s, key=TRUE, symkey=FALSE, denscol="gray25", lhei = c(2.5, 5), key.xlab = "CNV value", trace="none", scale="none", col=c(c("red", "orange", "yellow", "green", "deepskyblue", "blue", "purple3", "magenta", "orchid1"), rep("black", max(a)-8)), cexRow=%(cexRow)f, cexCol=%(cexCol)f, ColSideColors = colColorList$colColorList%(hclustStr)s%(labRowStr)s%(labColStr)s%(rowColorStr)s)
+	
+	#h <- hist(t(a), plot = FALSE, breaks = breaks)
+            #hx <- scale01(breaks, min.raw, max.raw)
+            #hy <- c(h$counts, h$counts[length(h$counts)])
+            #lines(hx, hy/max(hy) * 0.95, lwd = 1, type = "s",
+                #col = denscol)
+            #if (is.null(key.ytickfun)) {
+                #yargs <- list(at = pretty(hy)/max(hy) * 0.95,
+                  #labels = pretty(hy))
+            #}
+            #else {
+                #yargs <- key.ytickfun()
+            #}
+            #yargs$side <- 2
+            #do.call(axis, yargs)
+            #if (is.null(key.title))
+                #key.title <- "Color Key
+#and Histogram"
+            #if (!is.na(key.title))
+                #title(key.title)
+            #par(cex = 0.5)
+            #if (is.null(key.ylab))
+                #key.ylab <- "Count"
+            #if (!is.na(key.ylab))
+                #mtext(side = 2, key.ylab, line = par("mgp")[1], padj = 0.5, cex = par("cex") * par("cex.lab"))
+
+	par(cex = .8)
+	legend(%(groupLegendPos)s, xpd=TRUE,     # location of the legend on the heatmap plot
+    legend = colColorList$legendList, # category labels
+    col = colColorList$legendColorList,  # color key
+    lty= 1,             # line style
+    lwd = 5,            # line width
+	title = colColorList$title)
+	
+	%(legendStr)s
+	
+	dev.off()
+}
+'''
+		rStr = rStr % {'hclustStr': hclustStr, 'height': height, 'width': width, 'inputFile': matrixFile, 'cexRow': cexRow, 'cexCol': cexCol, 'marginStr': R()._getStrFromList(margins), 'groupStr': groupStr, 'legendStr': rowLegendStr, 'labRowStr': labRowStr, 'labColStr': labColStr, 'rowSideStr': rowSideStr, 'rowColorStr': rowColorStr, 'dirName': os.path.dirname(os.path.abspath(__file__)), 'groupLegendPos': groupLegendPosStr}
+		R().runCmd(rStr, FileNameGetter(matrixFile).get('_heatmap_%s.R' % hclust))
+	
+	def __createHeatmap(self, matrixFile, hclustStr, height, width, cexRow, cexCol, margins, labRowStr, labColStr, groupDict, outFileName):
+		groupStr, colColorStr, legendStr = self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(groupDict)
+		rowSideStr, rowLegendStr = self.__getRowSideColorsStr()
+		rowColorStr = ', RowSideColors = rowColorList'
+		#labRow = %(labRow)s, labCol = %(labCol)s
+		rStr = '''pdf("%(outFileName)s", height=%(height)d, width=%(width)d)
+
+library("RColorBrewer")
+library("gplots")
+a<-(as.matrix(read.csv2("%(inputFile)s", h=T, row.names=1, sep = "\t")))
+
+#hr <- hclust(dist(t(a)))
+#hc <- hclust(dist(a)) Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc), 
+
+%(groupStr)s
+
+%(rowSideStr)s
+
+heatmap.2(t(a), margins=%(marginStr)s, key=TRUE, symkey=FALSE, density.info="histogram", denscol="gray25", key.xlab = "CNV value", lhei = c(2.5, 5), trace="none", scale="none", col=c(c("red", "orange", "yellow", "green", "deepskyblue", "blue", "purple3", "magenta", "orchid1"), rep("black", max(a)-8)), cexRow=%(cexRow)f, cexCol=%(cexCol)f, %(hclustStr)s%(colColorStr)s%(labRowStr)s%(labColStr)s%(rowColorStr)s)
+
+par(cex = .5)
+%(legendStr)s
+
+dev.off()
+'''
+		rStr = rStr % {'hclustStr': hclustStr, 'outFileName': outFileName, 'height': height, 'width': width, 'inputFile': matrixFile, 'cexRow': cexRow, 'cexCol': cexCol, 'marginStr': R()._getStrFromList(margins), 'groupStr': groupStr, 'colColorStr': colColorStr, 'legendStr': legendStr + rowLegendStr, 'labRowStr': labRowStr, 'labColStr': labColStr, 'rowSideStr': rowSideStr, 'rowColorStr': rowColorStr}
+		R().runCmd(rStr, FileNameGetter(outFileName).get('R'))
+	
+	def __getGroupIdxFromValue(self, value, minValue, step):
+		groupIdx = (float(value) - minValue) / step
+		if int(groupIdx) != groupIdx:
+			groupIdx = int(groupIdx) + 1
+		else:
+			groupIdx = int(groupIdx)
+		return groupIdx
+	
+	def __getGroupListAndValueToGroupDictFromValueList(self, valueList, valueDict):
+		valueList.sort()
+		groupList = []
+		if 'NA' in valueDict.values():
+			groupList.append('NA')
+		nbEltsPerGroup = int(math.ceil(len(valueList) / 4.))
+		valueToGroupDict = {}
+		for i in range(4):
+			currentValueList = valueList[i*nbEltsPerGroup: (i+1)*nbEltsPerGroup+1]
+			if i == 3:
+				groupName = 'expression(paste(%f <= X, "" <= %f))' % (currentValueList[0], currentValueList[-1])
+			else:
+				groupName = 'expression(paste(%f <= X, " < ", %f))' % (currentValueList[0], currentValueList[-1])
+				currentValueList.remove(currentValueList[-1])
+			groupList.append(groupName)
+			for value in currentValueList:
+				valueToGroupDict[value] = groupName
+		return groupList, valueToGroupDict
+	
+	def __getColorDictAndGroupListFromValueDict(self, valueDict, colorList):
+		valueList = list(set(valueDict.values()))
+		nonEmptyValueList = [value for value in valueList if value not in ['', 'NA']]
+		valueList.sort()
+		colorDict = {}
+		groupList = []
+		#print ':' * 50
+		#print valueList
+		#print '?' * 50
+		if len(valueList) < 10 or (not ValueParser().isFloat(nonEmptyValueList[0]) and not ValueParser().isFloat(nonEmptyValueList[1])):
+			groupList = valueList
+			for i, (sampleName, value) in enumerate(valueDict.iteritems()):
+				color = colorList[valueList.index(value)]
+				colorDict[sampleName] = color, value
+		else:
+			#groupList = []
+			#if 'NA' in valueList:
+				#groupList.append('NA')
+			valueList = [float(value) for value in nonEmptyValueList]
+			#minValue = min(valueList)
+			#maxValue = max(valueList)
+			#step = (maxValue - minValue) / 4.
+			groupList, valueToGroupDict = self.__getGroupListAndValueToGroupDictFromValueList(valueList, valueDict)
+			#for i in range(4):
+				#groupList.append('%f expression(""<=) X < %f' % (minValue + i * step, minValue + (i+1) * step))
+			for i, (sampleName, value) in enumerate(valueDict.iteritems()):
+				if value == 'NA':
+					groupIdx = 0
+				else:
+					groupName = valueToGroupDict[float(value)]
+					#groupIdx = self.__getGroupIdxFromValue(value, minValue, step)
+					groupIdx = groupList.index(groupName)
+				color = colorList[groupIdx]
+				try:
+					colorDict[sampleName] = color, groupList[groupIdx]
+				except:
+					print sampleName, groupIdx, value, step, minValue, maxValue, groupList
+					raise
+		return colorDict, groupList
+	
+	def __getGroupDictDictAndGroupListDict(self):
+		fh = ReadFileAtOnceParser(self.__sampleFile)
+		header = fh.getSplittedLine()
+		groupDict = defaultdict(dict)
+		sampleIdx = header.index('Sample')
+		if 'sampleAlias' in header:
+			sampleIdx = header.index('sampleAlias')
+		sampleList = []
+		for splittedLine in fh:
+			for i, colName in enumerate(header):
+				if i == sampleIdx or colName == 'Sample':
+					continue
+				if self.__groupColumnName and colName != self.__groupColumnName:
+					continue
+				value = splittedLine[i].strip()
+				sampleName = splittedLine[sampleIdx]
+				if value == '':
+					value = 'NA'
+				value = value.replace('"', '')
+				#if value == 'NA':
+					#print '>' * 50
+					#print splittedLine[sampleIdx], value
+				groupDict[colName][sampleName] = value
+		colorDict = defaultdict(dict)
+		groupListDict = {}
+		for colName in groupDict:
+			currentGroupDict = groupDict[colName]
+			colorList = Color().getColorList(len(currentGroupDict))
+			try:
+				currentColorDict, groupList = self.__getColorDictAndGroupListFromValueDict(currentGroupDict, colorList)
+			except:
+				print 'COLname = %s' % colName
+				raise
+			#colorDict[colName] = currentColorDict, groupList
+			for sampleName, (color, groupName) in currentColorDict.iteritems():
+				colorDict[sampleName][colName] = color, groupName
+			groupListDict[colName] = groupList
+		groupDict = defaultdict(SimpleMultiDict)
+		for sampleName in colorDict:
+			currentColorDict = colorDict[sampleName]
+			for colName in currentColorDict:
+				color, groupName = currentColorDict[colName]
+				groupDict[colName][groupName] = sampleName
+		return groupDict, groupListDict
+	
+	def __getColorRstr(self, matrixFile, hclust):
+		groupDict, groupListDict = self.__getGroupDictDictAndGroupListDict()
+		rStr = ''
+		for i, colName in enumerate(groupDict.keys()):
+			groupStr, colSideColorsStr, legendStr, legendList, legendColorList = self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(groupDict[colName], colName, i, groupListDict[colName])
+			groupStr += '\ncolColorList%(i)d <- c()\ncolColorList%(i)d$colColorList <- colColorList\ncolColorList%(i)d$outFileName <- "%(outFileName)s"\ncolColorList%(i)d$legendList <- %(legendList)s\ncolColorList%(i)d$legendColorList <- %(legendColorList)s\ncolColorList%(i)d$title <- "%(title)s"\n' % {'i': i, 'legendList': R()._getStrFromList(legendList), 'legendColorList': R()._getStrFromList(legendColorList), 'outFileName': FileNameGetter(matrixFile).get('_heatmap_%s_%s.pdf' % (colName.replace(' ', '_'), hclust)), 'title': colName}
+			rStr += groupStr
+		rStr += '\nallColColorList <- list(%s)\n' % (', '.join(['colColorList%d' % i for i in range(len(groupDict))]))
+		return rStr
+			
+	def __createRGroupColorFile(self):
+		colorFile = FileNameGetter(self.__sampleFile).get('_color.txt')
+		colorFh = CsvFileWriter(colorFile)
+		fh = ReadFileAtOnceParser(self.__sampleFile)
+		header = fh.getSplittedLine()
+		groupDict = defaultdict(dict)
+		sampleIdx = header.index('Sample')
+		if 'sampleAlias' in header:
+			sampleIdx = header.index('sampleAlias')
+		sampleList = []
+		for splittedLine in fh:
+			for i, colName in enumerate(header):
+				if i == sampleIdx or colName == 'Sample':
+					continue
+				value = splittedLine[i].strip()
+				sampleName = splittedLine[sampleIdx]
+				if value == '':
+					value = 'NA'
+				groupDict[colName][sampleName] = value
+		colorDict = defaultdict(dict)
+		colorFileHeader = ['sample']
+		for colName in groupDict:
+			currentGroupDict = groupDict[colName]
+			colorList = Color().getColorList(len(currentGroupDict))
+			try:
+				currentColorDict, groupList = self.__getColorDictAndGroupListFromValueDict(currentGroupDict, colorList)
+			except:
+				print 'COLname = %s' % colName
+				raise
+			#colorDict[colName] = currentColorDict, groupList
+			for sampleName, (color, groupName) in currentColorDict.iteritems():
+				colorDict[sampleName][colName] = color, groupName
+			colorFileHeader += [colName, colName + '.group']
+		colorFh.write(colorFileHeader)
+		for sampleName, currentColorDict in colorDict.iteritems():
+			lineToWrite = [sampleName]
+			for colName in groupDict:
+				lineToWrite += list(currentColorDict[colName])
+			colorFh.write(lineToWrite)
+		return colorFile
+	
+	def _createHeatmap(self, matrixFile, hclust = None, height = None, width = None, cexRow = None, cexCol = None, margins = None, labRow = None, labCol = None, groupDict = None, groupLegendPos = None, chrLegendPos = None):
+		matrixFile = os.path.abspath(matrixFile)
+		if not height:
+			height = 12
+		if not width:
+			width = 10
+		if not cexRow:
+			cexRow = 0.45
+		if not cexCol:
+			cexCol = 0.7
+		if not margins:
+			margins = [5, 5]
+		if labRow is None:
+			labRow = False
+		if labCol is None:
+			labCol = True
+		hclustStr = labRowStr = labColStr = ''
+		if not labRow:
+			labRowStr = ', labRow = FALSE'
+		if not labCol:
+			labColStr = ', labCol = FALSE'
+		if hclust:
+			hclustStr = ", hclustfun = function(x) hclust(x,method = '%s')" % hclust
+		#if groupDict:
+			#groupDictList = [(groupDict, FileNameGetter(matrixFile).get('_heatmap_%s.pdf' % hclust))]
+		#else:
+			#colorFile = self.__createRGroupColorFile()
+			#return
+		#for groupDict, outFileName in groupDictList:
+		#self.__createHeatmap(matrixFile, hclustStr, height, width, cexRow, cexCol, margins, labRowStr, labColStr, groupDict, outFileName)
+		self.__createHeatmap2(matrixFile, hclustStr, height, width, cexRow, cexCol, margins, labRowStr, labColStr, groupDict, hclust, groupLegendPos, chrLegendPos)
+	
+	def __getSampleShapeAndColorFunctionStr(self, groupDict, groupList):
+		colorFuncStr = shapeFuncStr = ''
+		colorList = Color().getColorList(len(groupList))
+		shapeList = self.__getShapeList()
+		shapeDict = dict([[groupName, shapeList[i%len(shapeList)]] for i, groupName in enumerate(groupList)])
+		shapeDict2 = dict([[groupName, self.__getShapeList(True)[i%len(shapeList)]] for i, groupName in enumerate(groupList)])
+		for i, groupName in enumerate(groupList):
+			sampleList = groupDict.getall(groupName)
+			if self.__useShape:
+				color = colorList[i]
+				colorFuncStr += '\tif (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), color)
+				shape = shapeDict[groupName]
+				shapeFuncStr += '\tif (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), shape)
+		return 'getShapeForSample <- function(sampleName) {\n%s\n}\n' % (shapeFuncStr), 'getColorForSample <- function(sampleName) {\n%s\n}\n' % (colorFuncStr), colorList, [shapeDict2[groupName] for groupName in groupList]
+	
+	def __installPlotrixFromHomePage(self):
+		R(self.__binDir, libDir = self.__rLibDir).installPackageFromUrl('https://cran.r-project.org/web/packages/plotrix/index.html')
+		
+	def _createDendrogram(self, matrixFile, groupDict, colorDict, shapeDict, ploidyFile2, shapeDict2, coeff, keyword = None, defaultEmptyValue = None, hclust = None):
+		groupDict, groupListDict = self.__getGroupDictDictAndGroupListDict()
+		matrixFile = os.path.abspath(matrixFile)
+		if not R(self.__binDir, libDir = self.__rLibDir).isPackageInstalled('plotrix'):
+			try:
+				R(self.__binDir, libDir = self.__rLibDir).installPackage('plotrix')
+			except:
+				self.__installPlotrixFromHomePage()
 		colorFuncStr = shapeFuncStr = setLabelStr = getShapeFuncStr = legendStr = ''
 		colName = 'lab.col'
 		adjustY = 'yMax * %f / 3' % coeff
-		print groupDict
+		#print groupDict
 		#if not adjustShapeSize:
 			#adjustY = '1'
+		#for groupName in groupDict:
+			#sampleList = groupDict.getall(groupName)
+			#if self.__useShape:
+				#color = colorDict[groupName]
+				#colorFuncStr += 'if (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), color)
+				#shape = shapeDict[groupName]
+				#shapeFuncStr += 'if (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), shape)
+		shapeStr = drawShapeStr = ''
+		if not hclust:
+			hclust = 'ward'
+		if self.__useShape:
+			legendStr = 'legend("topright", "(x,y)", legend=obj$legend, col=obj$col, pch=obj$shape, title = obj$title)'
+			colName = 'col'
+			shapeStr = ', pch = getShapeForSample(label)'
+			setLabelStr = 'attr(x, "label") <- ""'
+			#getShapeFuncStr = 'getShapeForSample <- function(sampleName) {\n	%s\n}' % shapeFuncStr
+			drawShapeStr = '''for (sampleName in rownames(m[sample.ord, ])) {
+		drawShape(x, obj$getShapeForSample(sampleName), obj$getColorForSample(sampleName), yMax)
+		x <- x+1
+	}
+'''
+			
 		drawShapeFuncStr = '''library(graphics)
-library(plotrix)
+library(plotrix%(libStr)s)
+
 drawShape <- function (x, shape, color, yMax) {
 	downCoeff = %(adjustY)s
 	if (shape == "circle") {
@@ -1972,37 +2684,7 @@ drawShape <- function (x, shape, color, yMax) {
 		stop(paste(c("Shape ", shape, " unhandled")))
 	}
 }
-''' % {'adjustY': adjustY}
-		for groupName in groupDict:
-			sampleList = groupDict.getall(groupName)
-			if self.__useShape:
-				color = colorDict[groupName]
-				colorFuncStr += 'if (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), color)
-				shape = shapeDict[groupName]
-				shapeFuncStr += 'if (sampleName %%in%% c(%s)) {return ("%s")}\n' % (', '.join(['"%s"' % sampleName.split('_')[0] for sampleName in sampleList]), shape)
-		shapeStr = drawShapeStr = ''
-		if self.__useShape:
-			legendStr = 'legend("topright", "(x,y)", legend=c(%s), col=c(%s), pch=c(%s))' % (', '.join(['"%s"' % groupName for groupName in Utilities.getOrderedKeys(groupDict)]), ', '.join(['"%s"' % colorDict[groupName] for groupName in Utilities.getOrderedKeys(groupDict)]), ', '.join([str(shapeDict2[groupName]) for groupName in Utilities.getOrderedKeys(groupDict)]))
-			colName = 'col'
-			shapeStr = ', pch = getShapeForSample(label)'
-			setLabelStr = 'attr(x, "label") <- ""'
-			getShapeFuncStr = 'getShapeForSample <- function(sampleName) {\n	%s\n}' % shapeFuncStr
-			drawShapeStr = '''for (sampleName in rownames(m[sample.ord, ])) {
-	drawShape(x, getShapeForSample(sampleName), getColorForSample(sampleName), yMax)
-	x <- x+1
-}'''
-		imgFile = matrixFile.replace('.txt', '.png')
-		if keyword:
-			imgFile = matrixFile.replace('.txt', '_%s.png' % keyword)
-		rStr = drawShapeFuncStr + '''a<- read.csv2("%(inputFile)s", h=T, row.names=1, sep = "\t")
-b<-as.matrix(a)
-c<- dist(b)
-d<-hclust(c, method="ward")
 
-getColorForSample <- function(sampleName) {
-  %(colorFuncStr)s
-}
-%(getShapeFuncStr)s
 ## function to set label color
 labelCol <- function(x) {
   if (is.leaf(x)) {
@@ -2010,35 +2692,69 @@ labelCol <- function(x) {
 	label <- attr(x, "label")
     %(setLabel)s
     ## set label color to red for A and B, to blue otherwise
-    #attr(x, "nodePar") <- list(%(colName)s=getColorForSample(label)%(shapeStr)s)
   }
   return(x)
 }
 
+a <- read.csv2("%(inputFile)s", h=T, row.names=1, sep = "\t")
+b <- as.matrix(a)
+c <- dist(b)
+d <- hclust(c, method="%(hclustStr)s")
+
 ## apply labelCol on all nodes of the dendrogram
 d <- dendrapply(as.dendrogram(d), labelCol)
 sample.ord <- order.dendrogram(d)
-#m <- as.matrix(read.csv2("%(ploidyFile2)s", h=T, sep = "\t", row.names=1))
 m <- b
+''' % {'adjustY': adjustY, 'libStr': R(libDir = self.__rLibDir).getLibStr(), 'inputFile': matrixFile, 'setLabel': setLabelStr, 'hclustStr': hclust}
+			
+		rStr = drawShapeFuncStr
+		for i, (colName, groupList) in enumerate(groupListDict.iteritems()):
+			getShapeFuncStr, getColorFuncStr, colorList, shapeList = self.__getSampleShapeAndColorFunctionStr(groupDict[colName], groupList)
+			imgFile = FileNameGetter(matrixFile).get('_dendro_%s.png' % colName.replace(' ', '_'))
+			if keyword:
+				imgFile = FileNameGetter(imgFile).get('_%s.png' % keyword)
+			rStr += '''%(getColorFuncStr)s
+	
+%(getShapeFuncStr)s
+	
+obj%(idx)d <- c()
+obj%(idx)d$getShapeForSample <- getShapeForSample
+obj%(idx)d$getColorForSample <- getColorForSample
+obj%(idx)d$outFileName <- "%(pngFile)s"
+obj%(idx)d$col <- %(colStr)s
+obj%(idx)d$legend <- %(legendStr)s
+obj%(idx)d$shape <- %(shapeStr)s
+obj%(idx)d$title <- "%(title)s"
+''' % {'pngFile': imgFile, 'getColorFuncStr': getColorFuncStr, 'getShapeFuncStr': getShapeFuncStr, 'idx': i, 'pngFile': imgFile, 'colStr': R()._getStrFromList(colorList), 'legendStr': R()._getStrFromList(groupList), 'shapeStr': R()._getStrFromList(shapeList), 'title': colName}
+		
+		if len(groupListDict) == 1:
+			rFileName = FileNameGetter(imgFile).get('R')
+		else:
+			rFileName = FileNameGetter(matrixFile).get('_dendro.R')
+		rStr += '''	allFunctionList <- list(%(allFunctionStr)s)
 
-png("%(pngFile)s", width=4000, height=2200, res=300)
-plot(d)
-xylim <- par("usr")
-plotdim <- par("pin")
-ymult <- getYmult()
-x = 1
-yMax = par('usr')[4]
-%(drawShapeStr)s
-%(legendStr)s
-dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': colorFuncStr, 'getShapeFuncStr': getShapeFuncStr, 'setLabel': setLabelStr, 'colName': colName, 'shapeStr': shapeStr, 'legendStr': legendStr, 'ploidyFile2': ploidyFile2, 'drawShapeStr': drawShapeStr}
-		rFileName = FileNameGetter(imgFile).get('R')
-		outFh = CsvFileWriter(rFileName)
-		outFh.write(rStr)
-		outFh.close()
-		cmd = '%sRscript --vanilla %s %sout' % (self.__binStr, rFileName, rFileName)
-		if self.__binStr:
-			cmd = 'xvfb-run -w 5 --auto-servernum ' + cmd
-		Utilities.mySystem(cmd)
+for (obj in allFunctionList){
+	print(paste("Generating dendrogram for colName <", obj$title, ">"))
+	png(obj$outFileName, width=4000, height=2200, res=300)
+	plot(d)
+	xylim <- par("usr")
+	plotdim <- par("pin")
+	ymult <- getYmult()
+	x = 1
+	yMax = par('usr')[4]
+	%(drawShapeStr)s
+	%(legendStr)s
+	dev.off()
+}''' % {'drawShapeStr': drawShapeStr, 'allFunctionStr': ', '.join(['obj%d' % i for i in range(len(groupListDict))]), 'legendStr': legendStr}
+		
+		#outFh = CsvFileWriter(rFileName)
+		#outFh.write(rStr)
+		#outFh.close()
+		#cmd = '%sRscript --vanilla %s %sout' % (self.__binStr, rFileName, rFileName)
+		#if self.__binStr:
+			#cmd = 'xvfb-run -w 5 --auto-servernum ' + cmd
+		#Utilities.mySystem(cmd)
+		R(self.__binDir).runCmd(rStr, rFileName)
 		
 	def __createMatrixFile(self, matrixDict, targetDir, keyword = '', ploidyFile = None):
 		try:
@@ -2048,7 +2764,8 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 		outFileName = os.path.join(targetDir, 'matrix_%s%s.txt' % (keyword, self.__suffix))
 		outFh = CsvFileWriter(outFileName)
 		print '%d in matrixDict' % len(matrixDict)
-		outFh.write(['Sample'] + [chrPos for chrPos, ploidy in matrixDict.values()[0]])
+		outHeader = ['Sample'] + [chrPos for chrPos, ploidy in matrixDict.values()[0]]
+		outFh.write(outHeader)
 		if ploidyFile:
 			fh = ReadFileAtOnceParser(ploidyFile)
 			header = fh.getSplittedLine()
@@ -2059,7 +2776,7 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 				continue
 			if ploidyFile:
 				splittedLine = lineDict[sampleName]
-				if not splittedLine[groupIdx]:
+				if groupIdx is not None and not splittedLine[groupIdx]:
 					continue
 			dataList = matrixDict[sampleName]
 			ploidyLine = [ploidy for chrPos, ploidy in dataList]
@@ -2070,6 +2787,11 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 			#if std < 1:
 				#print 'Excluding sample %s based on std' % sampleName
 				#continue
+			if len(ploidyLine) + 1 != len(outHeader):
+				print set(outHeader[1:]) - set([chrPos for chrPos, ploidy in dataList])
+				print dataList
+				print sampleName, len(outHeader), len(ploidyLine) + 1
+				raise NotImplementedError
 			outFh.write([sampleName] + ploidyLine)
 		return outFileName
 	
@@ -2200,7 +2922,7 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 		fh = ReadFileAtOnceParser(ascatFile)
 		outFh.write(fh.getSplittedLine())
 		for splittedLine in fh:
-			print splittedLine
+			#print splittedLine
 			pos = OrientedPosition(*(splittedLine[1:4] + ['+']))
 			centromerePos = Position(pos.ctgId, *centromereDict[pos.ctgId])
 			overlapPos = pos.getOverlapPosition(centromerePos)
@@ -2221,22 +2943,37 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 			outFh.write(splittedLine)
 		return outFileName
 	
-	def process(self, ascatFile, chrFile, targetDir, ploidyFile, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, keyword = None, defaultGroupValue = None, mergeCentromereSegments = None, gcFile = None, platform = None, libDir = None, gw6Dir = None, snpFile = None, normalize = True, sampleList = None):
+	def __isFileInLrrBafFormat(self, fileName):
+		fh = ReadFileAtOnceParser(fileName, bufferSize = 1)
+		header = fh.getSplittedLine()
+		return len(header) >= 4 and '.Log R Ratio' in header[3]
+	
+	def __isFileInAscatFormat(self, fileName):
+		fh = ReadFileAtOnceParser(fileName, bufferSize = 1)
+		return fh.getSplittedLine() == ['sample', 'chr', 'startpos', 'endpos', 'nMajor', 'nMinor']
+	
+	def process(self, ascatFile, chrFile, targetDir, ploidyFile, histogram = True, merge = False, dendrogram = False, plotAll = False, centromereFile = None, keyword = None, defaultGroupValue = None, mergeCentromereSegments = None, gcFile = None, platform = None, libDir = None, gw6Dir = None, snpFile = None, normalize = True, sampleList = None, heatmap = False, hclust = None, height = None, width = None, cexRow = None, cexCol = None, margins = None, labRow = None, labCol = None, groupLegendPos = None, chrLegendPos = None, fileType = None):
 		if sampleList and os.path.isfile(sampleList[0]):
 			sampleList = Utilities.loadCache(sampleList[0])
-		if not os.path.isfile(ascatFile):
+		if not os.path.isfile(ascatFile) or (not self.__isFileInLrrBafFormat(ascatFile) and not self.__isFileInAscatFormat(ascatFile)):
 			if os.path.isdir(ascatFile):
 				dumpFileName = os.path.join(ascatFile, 'ascatFile.pyDump')
 			else:
 				dumpFileName = os.path.join(os.path.dirname(ascatFile.split(',')[0]), 'ascatFile_%d.pyDump' % hash(ascatFile))
-			ascatFile = Utilities.getFunctionResultWithCache(dumpFileName, RunAscat(self.__binDir, self.__rLibDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir, snpFile, normalize, sampleList)
-		if not ploidyFile:
-			ploidyFile = CNView(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)
-			#ploidyDict = self.__getPloidyDictFromFile(ploidyFile)
-			print 'Using ploidyFile = %s' % ploidyFile
-		########################################## add parameters for Illumina SNP arrays
+			if fileType == 'Sequenza':
+				if not os.path.isdir(ascatFile):
+					raise NotImplementedError('Option "-f" should be a directory when analyzing Sequenza results but found "%s"' % ascatFile)
+				ascatFile = Utilities.getFunctionResultWithCache(dumpFileName, RunSequenza(self.__binDir)._createAscatFileFromSegmentFiles, ascatFile)
+			else:
+				ascatFile = Utilities.getFunctionResultWithCache(dumpFileName, RunAscat(self.__binDir, self.__rLibDir).process, ascatFile, self.__sampleFile, self.__sampleAliasFile, gcFile, platform, libDir, gw6Dir, snpFile, normalize, sampleList)
+				#raise NotImplementedError('Supported fileType are ("ASCAT", "Sequenza")')
 		if not targetDir:
 			targetDir = os.path.dirname(ascatFile)
+		if not ploidyFile:
+			ploidyFile = aCNViewer(None, 10, self.__binDir, self.__useShape, self.__sampleFile, self.__sampleAliasFile, self.__groupColumnName)._createPloidyFile(ascatFile, chrFile, targetDir, None, centromereFile, mergeCentromereSegments)
+			#ploidyDict = self._getPloidyDictFromFile(ploidyFile)
+			print 'Using ploidyFile = %s' % ploidyFile
+		########################################## add parameters for Illumina SNP arrays
 		self.__ascatFile = ascatFile
 		outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = self.__createMatrixFileAndGetDicts(ascatFile, chrFile, targetDir, ploidyFile, centromereFile, mergeCentromereSegments)
 		#sys.exit(1)
@@ -2258,34 +2995,63 @@ dev.off()''' % {'inputFile': matrixFile, 'pngFile': imgFile, 'colorFuncStr': col
 				self.__createMergedHistograms(matrixDict, ploidyDict, targetDir, group2Dict, lohMatrixDict, groupDict, centromereDict)
 			if plotAll or not merge:
 				self.__createHistogramBySample(matrixDict, ploidyDict, targetDir, lohMatrixDict, centromereDict)
+		if plotAll or dendrogram or heatmap:
+			matrixFile = self.__createMatrixFile(matrixDict, targetDir, None, ploidyFile)
 		if plotAll or dendrogram:
 			cluster = ThreadManager(_getNbAvailableCpus())
-			if not self.__groupColumnName:
+			if not self.__groupColumnName and _isCustom:
 				colorDict['SIET'] = 'black'
 			ploidyFile2 = ploidyFile + '_reordered.txt'
 			ploidyFile3 = ploidyFile2 + '2'
 			Utilities()._runFunc(self.__createReorderedPhenotypeFile, [ploidyFile, ploidyFile2, colorDict], ploidyFile2)
-			matrixFile = self.__createMatrixFile(matrixDict, targetDir, None, ploidyFile)
-			cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, ploidyFile3, shapeDict2, 0.01269454, keyword)
-			if not self.__groupColumnName:
+			cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, ploidyFile3, shapeDict2, 0.01269454, keyword, None, hclust)
+			if not self.__groupColumnName and _isCustom:
 				coeff = 0.02296309
 				currentMatrixDict = self.__getSubsetMatrixForSamples(matrixDict, groupDict.getall('SIET'))
 				matrixFile = self.__createMatrixFile(currentMatrixDict, targetDir, 'SIET')
 				currentPhenotypeFile = ploidyFile + '_SIET.txt'
 				Utilities()._runFunc(self.__createReorderedPhenotypeFileFromMatrixFile, [matrixFile, ploidyFile, currentPhenotypeFile], currentPhenotypeFile)
-				cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, currentPhenotypeFile, shapeDict2, coeff)
+				cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, currentPhenotypeFile, shapeDict2, coeff, None, None, hclust)
 				
 				currentMatrixDict = dict([[sampleName, matrixDict[sampleName.split('_')[0]]] for groupName in set(groupDict.keys()) - set(['SIET']) for sampleName in groupDict.getall(groupName)])
 				matrixFile = self.__createMatrixFile(currentMatrixDict, targetDir, 'PET')
 				currentPhenotypeFile = ploidyFile + '_PET.txt'
 				Utilities()._runFunc(self.__createReorderedPhenotypeFileFromMatrixFile, [matrixFile, ploidyFile, currentPhenotypeFile], currentPhenotypeFile)
-				cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, currentPhenotypeFile, shapeDict2, coeff)
+				cluster.submit(self._createDendrogram, matrixFile, groupDict, colorDict, shapeDict, currentPhenotypeFile, shapeDict2, coeff, None, None, hclust)
 				cluster.wait()
+		if plotAll or heatmap:
+			self._createHeatmap(matrixFile, hclust, height, width, cexRow, cexCol, margins, labRow, labCol, groupDict, groupLegendPos, chrLegendPos)
 	
+	
+import argparse, textwrap
+
+class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
+	def _format_action(self, action):
+		parts = super(argparse.RawDescriptionHelpFormatter, self)._format_action(action)
+		if action.nargs == argparse.PARSER:
+			parts = "\n".join(parts.split("\n")[1:])
+		return parts
+
+class DefaultHelpParser(argparse.ArgumentParser):
+	def error(self, message):
+		sys.stderr.write('error: %s\n' % message)
+		self.print_help()
+		sys.exit(2)
+			
 	
 def run(options, args):
+#def main():
+	commonCommandParameterList = []
+	description = 'aCNViewer is available at https://github.com/FJD-CEPH/aCNViewer and allows the visualization of absolute CNVs in a group of samples as stacked histograms for an easy dectection of recurrent CNVs, as heatmaps to identify regions and samples sharing similar global CNV patterns and as dendrograms for identification of sample clusters.'
+	parser = DefaultHelpParser(prog = __file__, formatter_class=lambda prog: SubcommandHelpFormatter(prog, max_help_position=20, width=75),
+		                       description='\naCNViewer: comprehensive genome-wide visualization of absolute copy number and copy neutral variations\n\n%s\n' % ('\n'.join(textwrap.wrap(description, 100))),
+		                       usage= 'aCNViewer.py command [options]', epilog = 'This is version {0} - Victor RENAULT - {1} - Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
+	subparsers = parser.add_subparsers(dest='module')
+	subparsers.metavar = None
+	
+	
 	if options.all:
-		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName).processAll(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.percentList, options.baseList, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile)
+		aCNViewer(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName).processAll(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.percentList, options.baseList, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile)
 	elif options.progName == 'ASCAT':
 		RunAscat(options.binDir, options.rLibDir).process(options.fileName, options.sampleFile, options.sampleAliasFile, options.gcFile, options.platform, options.libDir, options.gw6Dir, options.probeFile, options.normalize, options.sampleList)
 	#elif options.progName == 'convertIlluminaReportsToLrrBaf':
@@ -2294,46 +3060,79 @@ def run(options, args):
 		RunAscat(options.binDir)._createFileWithUpdatedPositions(options.fileName, options.probeFile, options.targetBuild)
 	elif options.progName == 'dendroFeatures':
 		RunAscat(options.binDir)._createDendrogramForEachFeature(options.fileName, options.targetDir, options.windowSize, options.percentage, options.fileName2, options.chrFile)
+	elif options.progName == 'gc':
+		RunSequenza(options.binDir)._createGcFile(options.refFileName)
 	elif options.progName == 'liftOver':
 		RunAscat(options.binDir)._liftOverRawProbeFile(options.fileName, options.targetBuild)
 	elif options.progName == 'merge':
 		RunAscat(options.binDir)._mergePloidyFileWithSampleInfoFile(options.fileName, options.sampleFile, options.sampleAliasFile)
 	elif options.progName == 'ploidy2':
-		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName)._createPloidyFile(options.fileName, options.chrFile, options.targetDir, None, options.centromereFile, options.mergeCentromereSegments, options.ploidyFile)
-		#CNView(options.windowSize, options.percentage, options.binDir, options.useShape)._createPloidyFile2(options.fileName, options.ploidyFile)
+		aCNViewer(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName)._createPloidyFile(options.fileName, options.chrFile, options.targetDir, None, options.centromereFile, options.mergeCentromereSegments, options.ploidyFile)
+		#aCNViewer(options.windowSize, options.percentage, options.binDir, options.useShape)._createPloidyFile2(options.fileName, options.ploidyFile)
+	elif options.progName == 'sequenza':
+		RunSequenza(options.binDir, nbCpus = options.nbCpus, memory = options.memory).process(options.sampleFile, options.dirName, options.pattern, options.targetDir, options.refFileName, options.createMpileUp, options.byChr)
+	elif options.progName == 'seqz':
+		RunSequenza(options.binDir, nbCpus = options.nbCpus)._createSeqzFile(options.tumorBam, options.normalBam, options.refFileName, options.gcFile, options.targetDir, options.createMpileUp, options.byChr)
+	elif options.progName == 'seqzR':
+		RunSequenza(options.binDir)._runSequenza(options.fileName, options.chrName)
 	else:
-		CNView(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName, options.rLibDir).process(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile, mergeCentromereSegments = options.mergeCentromereSegments, gcFile = options.gcFile, platform = options.platform, libDir = options.libDir, gw6Dir = options.gw6Dir, snpFile = options.probeFile, normalize = options.normalize, sampleList = options.sampleList)
+		aCNViewer(options.windowSize, options.percentage, options.binDir, options.useShape, options.sampleFile, options.sampleAliasFile, options.groupColumnName, options.rLibDir).process(options.fileName, options.chrFile, options.targetDir, options.ploidyFile, options.histogram, options.merge, options.dendrogram, options.plotAll, options.centromereFile, mergeCentromereSegments = options.mergeCentromereSegments, gcFile = options.gcFile, platform = options.platform, libDir = options.libDir, gw6Dir = options.gw6Dir, snpFile = options.probeFile, normalize = options.normalize, sampleList = options.sampleList, heatmap = options.heatmap, hclust = options.hclust, height = options.height, width = options.width, cexRow = options.cexRow, cexCol = options.cexCol, margins = options.margins, labRow = options.labRow, labCol = options.labCol, groupLegendPos = options.groupLegendPos, chrLegendPos = options.chrLegendPos, fileType = options.fileType)
 
-runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOOLEAN),
-                           CommandParameter('b', 'binDir', 'string'),
-                           CommandParameter('B', 'baseList', CommandParameterType.COMMA_SEP_ID, defaultValue = [int(nb * 1000000) for nb in [0.1, 0.5, 1, 2, 5, 10, 20]]),
-                           CommandParameter('c', 'chrFile', 'string'),
-                           CommandParameter('C', 'centromereFile', 'string'),
-                           CommandParameter('d', 'dendrogram', CommandParameterType.BOOLEAN, defaultValue = False),
+runFromTerminal(__name__, [CommandParameter('a', 'all', CommandParameterType.BOOLEAN, helpString = 'Set to True in order to generate plots using different resolutions in base pairs or in percentage of chromosome length'),
+                           CommandParameter('b', 'binDir', 'string', helpString = 'Set the location of the binaries. If R is installed in a custom folder, symbolic links to "R" and "Rscript" should be created in binDir. If you plan to analyze Affymetrix CEL files, a link to APT (Affymetrix Power Tools) root folder should be created in binDir so the structure should be binDir/APT/bin'),
+                           CommandParameter('B', 'baseList', CommandParameterType.COMMA_SEP_ID, defaultValue = [int(nb * 1000000) for nb in [0.1, 0.5, 1, 2, 5, 10, 20]], helpString = 'List of segments size in base pairs used to split chromosomes for CNV matrix'),
+                           CommandParameter('byChr', CommandParameterType.BOOLEAN, helpString = 'Sequenza parameter indicating wheter seqz file should be created by chromosome or not'),
+                           CommandParameter('c', 'chrFile', 'string', helpString = 'A tab-delimited file with 2 columns respectively chromosome name and chromosome length'),
+                           CommandParameter('C', 'centromereFile', 'string', helpString = 'File giving the centromere bounds. Can be generated using "curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt"'),
+                           CommandParameter('cexCol', 'float', helpString = 'Set cexCol for heatmaps. See R heatmap.2 documentation for more details'),
+                           CommandParameter('cexRow', 'float', helpString = 'Set cexRow for heatmaps. See R heatmap.2 documentation for more details'),
+                           CommandParameter('chrLegendPos', 'string', defaultValue = 'bottomleft', helpString = 'Heatmap parameter to set the position of the chromosome color legend. The default value is "bottomleft" and can be changed to coordinates (for example "0.1,0.5") or in R specified logical location ("top","bottom", "left", "right", etc)'),
+                           CommandParameter('chrName', 'string', helpString = 'Sequenza parameter indicating the name of the chromosome to process'),
+                           CommandParameter('createMpileUp', CommandParameterType.BOOLEAN, helpString = 'Sequenza parameter used to indicate whether an intermediary mpileup file should be created'),
+                           CommandParameter('d', 'dendrogram', CommandParameterType.BOOLEAN, defaultValue = False, helpString = 'if True, plot dendrograms'),
                            CommandParameter('f', 'fileName', 'string'),
-                           CommandParameter('F', 'fragmentSize', 'int'),
                            CommandParameter('fileName2', 'string'),
-                           CommandParameter('g', 'gcFile', 'string'),
-                           CommandParameter('G', 'groupColumnName', 'string'),
-                           CommandParameter('gw6Dir', 'string'),
-                           CommandParameter('histogram', CommandParameterType.BOOLEAN, defaultValue = False),
-                           CommandParameter('l', 'libDir', 'string'),
-                           CommandParameter('m', 'merge', CommandParameterType.BOOLEAN, defaultValue = False),
+                           CommandParameter('fileType', 'string'),
+                           CommandParameter('g', 'gcFile', 'string', helpString = 'GC file necessary for ASCAT GC correction when analyzing SNP array data. Please check ASCAT website for available GC files: https://www.crick.ac.uk/peter-van-loo/software/ASCAT'),
+                           CommandParameter('G', 'groupColumnName', 'string', helpString = 'Name of the column in sampleFile used to separate samples into groups. If not set, plots will be generated on each feature specified in sampleFile'),
+                           CommandParameter('groupLegendPos', 'string', defaultValue = 'topright', helpString = 'Heatmap parameter to set the position of the group color legend. The default value is "bottomleft" and can be changed to coordinates (for example "0.1,0.5") or in R specified logical location ("top","bottom", "left", "right", etc)'),
+                           CommandParameter('gw6Dir', 'string', helpString = 'Affymetrix SNP array parameter indicating where http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array'),
+                           CommandParameter('hclust', 'string', helpString = 'Set hclust value for heatmaps'),
+                           CommandParameter('heatmap', CommandParameterType.BOOLEAN, helpString = 'if True, plot heatmaps'),
+                           CommandParameter('height', 'int', helpString = 'Set heatmap\'s height'),
+                           CommandParameter('histogram', CommandParameterType.BOOLEAN, defaultValue = False, helpString = 'if True, plot histograms'),
+                           CommandParameter('l', 'libDir', 'string', helpString = 'Affymetrix library file downloadable from Affymetrix website: http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays'),
+                           CommandParameter('labCol', CommandParameterType.BOOLEAN, helpString = 'If True, show sample labels in heatmaps'),
+                           CommandParameter('labRow', CommandParameterType.BOOLEAN, helpString = 'If True, show position of chromosome segments in heatmaps'),
+                           CommandParameter('m', 'merge', CommandParameterType.BOOLEAN, defaultValue = True),
                            CommandParameter('M', 'mergeCentromereSegments', CommandParameterType.BOOLEAN, defaultValue = False),
+                           CommandParameter('margins', CommandParameterType.COMMA_SEP),
+                           CommandParameter('memory', 'int', defaultValue = 8, helpString = 'memory allocated to Sequenza in GB'),
                            CommandParameter('n', 'normalize', CommandParameterType.BOOLEAN, defaultValue = True),
+                           CommandParameter('normalBam', 'string', helpString = 'Sequenza parameter indicating normal bam file'),
+                           CommandParameter('nbCpus', 'int', helpString = 'Sequenza parameter indicating the number of threads to use when generating seqz file by chromosome'),
                            CommandParameter('o', 'outFileName', 'string'),
-                           CommandParameter('p', 'percentage', 'float'),
+                           CommandParameter('p', 'percentage', 'float', helpString = 'Segment size in percentage of chromosome length used to split chromosomes for CNV matrix'),
                            CommandParameter('P', 'progName', 'string'),
-                           CommandParameter('percentList', CommandParameterType.COMMA_SEP_FLOAT),# defaultValue = [0.5, 1, 2, 5, 10]),
-                           CommandParameter('platform', 'string'),
-                           CommandParameter('ploidyFile', 'string'),
-                           CommandParameter('plotAll', CommandParameterType.BOOLEAN, defaultValue = False),
+                           CommandParameter('pattern', 'string', defaultValue = '.bam', helpString = 'Sequenza parameter specifying bam file pattern'),
+                           CommandParameter('percentList', CommandParameterType.COMMA_SEP_FLOAT, helpString = 'List of segments size in percentage of chromosome length used to split chromosomes for CNV matrix'),# defaultValue = [0.5, 1, 2, 5, 10]),
+                           CommandParameter('platform', 'string', helpString = 'Name of the SNP array platform used to generate the data to analyze. Currently supported values are "Affy250k_sty", "Affy250k_nsp", "Affy500k", "AffySNP6", "Illumina660k" and "HumanOmniExpress12"'),
+                           CommandParameter('ploidyFile', 'string', helpString = 'Use ploidies from tab-delimited file with at least 2 columns: "sample" and "ploidy"'),
+                           CommandParameter('plotAll', CommandParameterType.BOOLEAN, defaultValue = False, helpString = 'If True, plot histograms, heatmaps and dendrograms'),
                            CommandParameter('probeFile', 'string'),
-                           CommandParameter('rLibDir', 'string'),
+                           CommandParameter('r', 'refFileName', 'string', helpString = 'Sequenza parameter indicating path to the reference file used to generate the bams'),
+                           CommandParameter('rLibDir', 'string', helpString = 'Set custom R library folder for installation of missing packages'),
                            CommandParameter('sampleAliasFile', 'string'),
-                           CommandParameter('sampleFile', 'string'),
+                           CommandParameter('sampleFile', 'string', helpString = 'Tab-delimited file with clinical information with sample name "Sample" column'),
                            CommandParameter('sampleList', CommandParameterType.COMMA_SEP),
-                           CommandParameter('t', 'targetDir', 'string'),
+                           CommandParameter('t', 'targetDir', 'string', helpString = 'Set the location of the output folder'),
                            CommandParameter('T', 'targetBuild', 'string'),
-                           CommandParameter('u', 'useShape', CommandParameterType.BOOLEAN, defaultValue = False),
-                           CommandParameter('w', 'windowSize', 'int')], run)
+                           CommandParameter('tumorBam', 'string', helpString = 'Sequenza parameter indicating tumor bam file'),
+                           CommandParameter('u', 'useShape', CommandParameterType.BOOLEAN, defaultValue = False, helpString = 'When "dendrogram" or "plotAll" is True, replace sample labels with colored shapes representing each sample group'),
+                           CommandParameter('w', 'windowSize', 'int', helpString = 'Segment size in base pairs used to split chromosomes for CNV matrix'),
+                           CommandParameter('W', 'width', 'int', helpString = 'Set heatmap\'s width')], run)
+
+
+#if __name__ == '__main__':
+	#main()
+	

@@ -238,8 +238,12 @@ class CsvFileWriter:
 		line = []
 		cellToChangeDict = {}
 		for i, field in enumerate(fieldList):
+			if i< 26:
+				column = chr(ord('A')+i)
+			else:
+				column = 'A' + chr(ord('A')+i%26)
 			if isinstance(field, ExcelCell):
-				cellToChangeDict['%s%d' % (chr(ord('A')+i), self.__lineNb)] = field.color, field.bgColor, field.style, field.alignment, field.otherParamDict
+				cellToChangeDict['%s%d' % (column, self.__lineNb)] = field.color, field.bgColor, field.style, field.alignment, field.otherParamDict
 				field = field.value
 			line.append(field)
 		self.__fh.append(line)
@@ -255,7 +259,12 @@ class CsvFileWriter:
 						paramDict['bold'] = True
 				if otherParamDict:
 					paramDict.update(otherParamDict)
-				newFont = self.__fh[cellKey].font.copy(**paramDict)
+				try:
+					newFont = self.__fh[cellKey].font.copy(**paramDict)
+				except:
+					print paramDict, cellKey
+					print len(fieldList), fieldList
+					raise
 				self.__fh[cellKey].font = newFont
 			if bgColor:
 				self.__fh[cellKey].fill = PatternFill("solid", fgColor=Color(bgColor))
@@ -337,6 +346,170 @@ class FileNameGetter:
 			raise NotImplementedError
 		return newFileName
 		
+	
+class ParseFastaFile(object):
+	'''
+	classdocs
+	'''
+
+
+	def __init__(self, name):
+		'''
+		Constructor
+		'''
+		self.filename = name
+		self.sequences = {}
+		
+	def _getFastaSeqForChr(self, chrName):
+		fh = ReadFileAtOnceParser(self.filename)
+		while fh.hasLinesLeft():
+			fastaSeq = self._getNextSeqFromFh(fh)
+			if not fastaSeq:
+				break
+			fastaSeqChrName = fastaSeq.getShortSeqName().split('_')[0]
+			if fastaSeqChrName != chrName:
+				print 'Passing [%s]' % fastaSeqChrName
+				continue
+			return fastaSeq
+		
+	def _getNextSeqFromFh(self, fh, allowEmptyLines = False):
+		header = fh.popFirst().strip()
+		if not header:
+			return
+		seq = ''
+		while fh.hasLinesLeft():
+			currentSeq = fh.popFirst().strip()
+			if allowEmptyLines and not currentSeq:
+				break
+			if currentSeq[0] == '>':
+				fh.restore(currentSeq)
+				break
+			seq += currentSeq
+		if header[0] != '>':
+			raise NotImplementedError('Expecting ">" as 1st header character but found [%s]' % header)
+		return FastaSeq(header, seq)
+		
+	def _getIdxFileName(self):
+		return self.filename + '_idx'
+		
+	def _createFastaIdxFile(self):
+		idxFile = self._getIdxFileName()
+		if not os.path.isfile(idxFile):
+			Utilities.mySystem('grep ">" %s > %s' % (self.filename, idxFile))
+		
+	def _getSequenceNameListFromFile(self, filtered = False):
+		self._createFastaIdxFile()
+		fh = open(self._getIdxFileName())
+		for seqName in fh:
+			seqName = seqName.lstrip('>').strip()
+			if filtered:
+				seqName = FastaSeq(seqName, None).getShortSeqName().split('_')[0]
+				hasChrPrefix = seqName[:3] == 'chr'
+				if (not hasChrPrefix and (not ValueParser().isNb(seqName) and len(seqName) not in [1, 2])) or (hasChrPrefix and not ValueParser().isNb(seqName[3:]) and len(seqName) not in [4, 5]):
+					continue
+			yield seqName
+		fh.close()
+		
+	def parse(self):
+		descriptions = {}
+		if self.filename.split('.')[-1] == 'gz':
+			import gzip
+			infile = gzip.open( self.filename, 'r')
+		else:
+			infile = open(self.filename, 'r')
+		lines = infile.readlines()
+		infile.close()
+		curDescription = ''
+		for l in lines:
+			if l.startswith('#') or l == '\n':
+				pass
+			elif l.startswith('>'):
+				print l
+				curDescription = l.replace('>', '')
+				self.sequences[curDescription] = ''
+				name = l.split('|')[3]
+				if not descriptions.has_key(name):
+					descriptions[name] = 1
+				else:
+					descriptions[name] += 1
+			else:
+				self.sequences[curDescription] += l.replace('\n', '')
+		for d in self.sequences:
+			print d
+	
+			
+class MergeAnnotationFiles:
+	def __getChrListFromIdxFile(self, fileName):
+		fh = ReadFileAtOnceParser(fileName)
+		chrList = []
+		for splittedLine in fh:
+			chrList.append(splittedLine[0])
+		return chrList
+	
+	def __getChrListFromRefFile(self, fileName):
+		if Utilities.getFileExtension(fileName) == 'sizes':
+			return self.__getChrListFromIdxFile(fileName)
+		idxFileName = fileName + '_idx'
+		if not os.path.isfile(idxFileName):
+			cmd = 'grep ">" %s > %s' % (fileName, idxFileName)
+			Utilities.mySystem(cmd)
+		fh = ReadFileAtOnceParser(idxFileName)
+		chrList = []
+		for splittedLine in fh:
+			chrName = splittedLine[0].lstrip('>').split('|')[0].strip()
+			chrList.append(chrName)
+		return chrList
+	
+	def __isRefFileForHuman(self, fileName):
+		partList = fileName.split(os.path.sep)
+		for part in partList:
+			part = part.lower()
+			if 'homo' in part and 'sapiens' in part:
+				return True
+	
+	def __getFileListFromPatternAndChrList(self, pattern, chrList):
+		fileList = []
+		for chrName in chrList:
+			fileName = pattern % chrName
+			if os.path.isfile(fileName):
+				fileList.append(fileName)
+		return fileList
+	
+	def process(self, pattern, outputFileName, refFileName = None, hasHeader = None, chrNameList = None):
+		chrList = range(1, 23) + ['X', 'Y', 'MT', 'M']
+		if refFileName and not self.__isRefFileForHuman(refFileName):
+			chrList = self.__getChrListFromRefFile(refFileName)
+		if chrNameList:
+			chrList = chrNameList
+		fileList = self.__getFileListFromPatternAndChrList(pattern, chrList)
+		if not fileList and chrList and chrList[0][:3] == 'chr':
+			fileList = self.__getFileListFromPatternAndChrList(pattern, [chrName[3:] for chrName in chrList])
+		#os.system('cat %s > %s' % (' '.join(fileList), outputFileName))
+		toCompress = False
+		if outputFileName[-3:] == '.gz':
+			outputFileName = '.'.join(outputFileName.split('.')[:-1])
+			toCompress = True
+		if hasHeader:
+			cmd = 'head -1 %s > %s' % (fileList[0], outputFileName)
+			if os.path.basename(fileList[0]).split('.')[-1] == 'gz':
+				cmd = 'zcat %s | head -1 > %s' % (fileList[0], outputFileName)
+			Utilities.mySystem(cmd)
+		for fileName in fileList:
+			if os.path.basename(fileName).split('.')[-1] == 'gz':
+				cmd = 'zcat'
+				if hasHeader:
+					cmd = "zcat %s | sed -n '1!p' >> %s" % (fileName, outputFileName)
+				else:
+					cmd += ' %s >> %s' % (fileName, outputFileName)
+			else:
+				cmd = 'cat'
+				if hasHeader:
+					cmd = "sed -n '1!p'"
+				cmd += ' %s >> %s' % (fileName, outputFileName)
+			Utilities.mySystem(cmd)
+		if toCompress:
+			Utilities.mySystem('gzip %s' % outputFileName)
+			
 	
 from ObjectBase import *
 	
