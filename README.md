@@ -207,8 +207,8 @@ where:
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
 * <a href="#centromereFile">`CENTROMERE_FILE`
 * <a href="#windowSize">`WINDOW_SIZE`
-* <a href="#sampleFile">`SAMPLE_FILE`: a tab-delimited file that should contain at least a column `Sample` with the name of each sample and another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
-* <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME` refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature in `SAMPLE_FILE` will be generated
+* <a id="sampleFile"></a>`SAMPLE_FILE`: a tab-delimited file that should contain at least a column `Sample` with the name of each sample and another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
+* <a id="phenotypicColumnName"></a>`PHENOTYPIC_COLUMN_NAME` refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature in `SAMPLE_FILE` will be generated
 
 
 ####PlotDendrograms
