@@ -67,9 +67,9 @@ Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where r
 `python aCNViewer.py -f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR`<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
-* `CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
-* `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
-* `CENTROMERE_FILE`: : file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
+* <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+* <a id="centromereFile"></a>`CENTROMERE_FILE`: : file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
 * `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
 * `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
@@ -95,9 +95,9 @@ where:
     - `Sample ID`
     - `Log R Ratio`
     - `B Allele Freq`
-  * `CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
-  * `CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
-  * `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+  * <a href="#chrSize">`CHR_SIZE_FILE`</a>
+  * <a href="#centromereFile">`CENTROMERE_FILE`</a>
+  * <a href="#windowSize">`WINDOW_SIZE`</a>
   * `PROBE_POS_FILE`: file listing the probes used on the SNP array with their genomic position. The file is tab-delimited with the following columns:
     - `Name`
     - `Chr`
@@ -169,9 +169,9 @@ where:
   + `endpos`
   + `nMajor`
   + `nMinor`
-* <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
-* `CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
-* `WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`</a>
+* <a href="#windowSize">`WINDOW_SIZE`</a>
 
 An example can be found below:
 
@@ -185,6 +185,8 @@ Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aC
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`</a>
+* <a href="#windowSize">`WINDOW_SIZE`</a>
 
 An example can be found below:
 
