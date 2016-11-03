@@ -78,7 +78,8 @@ Here is an example:
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 
-Compare `OUTPUT_DIR2/lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test1/lrr_baf.segments_merged_hist_2000000nt.png`
+Compare `OUTPUT_DIR2/lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test1/lrr_baf.segments_merged_hist_2000000nt.png`.
+
 Please note that while generating the histogram, the following files are created as well:
 * `*_10pc_ploidy.txt` is a matrix of segments of 10% chromosomal length for all samples. The last column indicates the calculated ploidy which corresponds to the most frequent ploidy
 * `*_samples.txt` contains, for each segment, the percentage of samples belonging to each CNV key value and the list of these samples
