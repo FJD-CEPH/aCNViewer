@@ -216,13 +216,17 @@ where:
 * `HEIGHT` is an optional parameter setting `height` for heatmaps. The default value is `12`. for heatmaps.
 * `WIDTH` is an optional parameter setting `width` for heatmaps. The default value is `10`. See R heatmap.2 documentation for more details
 * `MARGINS` is an optional parameter setting `margins` as a comma-separated string for heatmaps. The default value is `5,5`. See R heatmap.2 documentation for more details
-* `HCLUST` is an optional parameter setting `hclust` method for heatmaps. See R heatmap.2 documentation for more details
+* <a id="hclust"></a>:`HCLUST` is an optional parameter setting `hclust` method for heatmaps / dendrograms. See R heatmap.2 documentation for more details
 * `GROUP_LEGEND_POS` is an optional parameter setting the phenotypic / clinical feature legend's position within the heatmap. The default value is `topright` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
 # `CHR_LEGEND_POS` is an optional parameter setting the chromosome legend's position within the heatmap. The default value is `bottomleft` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
 
+An example can be found below:
+
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
+
 
 ####PlotDendrograms
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -230,11 +234,17 @@ where:
 * <a href="#windowSize">`WINDOW_SIZE`
 * <a href="#sampleFile">`SAMPLE_FILE`</a>
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
+* `USE_SHAPE` is optional and tells whether colored shaped leaves should be used instead of sample names. The default value is `0`
+* <a href="#hclust">`HCLUST`</a>
+
+An example can be found below:
+
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1`
 
 
 ####PlotAll
 If you want to plot all available graphical representations (a quantitative stacked histogram, a heatmap and a dendrogram):<br>
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --plotAll 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --plotAll 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [OPTIONS]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -242,3 +252,6 @@ where:
 * <a href="#windowSize">`WINDOW_SIZE`
 * <a href="#sampleFile">`SAMPLE_FILE`</a>
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
+* `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
+
+![Overview of CNViewer:](https://docs.google.com/viewer?url=https://raw.githubusercontent.com/degoes-consulting/lambdaconf-2015/master/speakers/jdegoes/intro-purescript/presentation.pdf)
