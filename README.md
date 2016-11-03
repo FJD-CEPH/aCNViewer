@@ -8,10 +8,11 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 - [Overview](#overview)
 - [Usage](#usage)
 - [Tutorial](#tutorial):
-  + Quick start:
+  + Quick start (quantitative stacked histograms):
     * [Affymetrix example](#affymetrix)
     * [ASCAT CNVs example](#testaffy2)
     * [Sequenza CNVs example](#testsequenzacnvs)
+    * [Other plots](#other-plots)
   + [Affymetrix](#affymetrix)
   + [Illumina](#illumina)
   + [NGS](#ngs)
@@ -162,7 +163,7 @@ Both examples below require to download [aCNViewer_TEST_DATA.tar.gz]().
 
 `python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
 where:
-* `ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
+* <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
   + `chr`
   + `startpos`
@@ -180,7 +181,8 @@ An example can be found below:
 Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
 
 
-####TestSequenzaCNVs: generate quantitative stacked from Sequenza results with a window size of 2Mbp
+####TestSequenzaCNVs
+Generate quantitative stacked histogram from Sequenza results with a window size of 2Mbp:<br>
 `python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
@@ -192,18 +194,41 @@ An example can be found below:
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --histogram 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
 
-Compare generated histogram with `aCNViewer_TEST_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`
+Compare `TARGET_DIR/ascat_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`
 
 
 ###Other plots
-
-All the different grapgs below can be generated using the 
+All the different graphs below require a sample file with at least one phenotypic / clinical information in order separate samples according to a given phenotypic / clinical group. All the previous commands can be adjusted to plot the chosen graph below by appending to each command the sample file and the chosen phenotypic / clinical column name. All the examples below will start from ASCAT segment file but could start from any previously described input.
 
 ####PlotHeatmaps
-
-
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --heatmap 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME`<br>
+where:
+* <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`
+* <a href="#windowSize">`WINDOW_SIZE`
+* <a href="#sampleFile">`SAMPLE_FILE`: a tab-delimited file that should contain at least a column `Sample` with the name of each sample and another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
+* <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME` refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature in `SAMPLE_FILE` will be generated
 
 
 ####PlotDendrograms
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME`<br>
+where:
+* <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`
+* <a href="#windowSize">`WINDOW_SIZE`
+* <a href="#sampleFile">`SAMPLE_FILE`</a>
+* <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
+
 
 ####PlotAll
+If you want to plot all available graphical representations (a quantitative stacked histogram, a heatmap and a dendrogram):<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --plotAll 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME`<br>
+where:
+* <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`
+* <a href="#windowSize">`WINDOW_SIZE`
+* <a href="#sampleFile">`SAMPLE_FILE`</a>
+* <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
