@@ -225,6 +225,8 @@ An example can be found below:
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
+See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
+
 
 ####PlotDendrograms
 `python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST]`<br>
