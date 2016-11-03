@@ -38,7 +38,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 
 ##Overview:
-![Overview of CNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
+![Overview of aCNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
 
 
 ##Usage:
@@ -179,6 +179,7 @@ An example can be found below:
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR`
 
 Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
+![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
 
 
 ####TestSequenzaCNVs
@@ -241,6 +242,9 @@ An example can be found below:
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1`
 
+![dendrogram example:](/img/matrix_None2000000nt_dendro_BCLC_stage.png?raw=true "Dendrogram example")
+
+
 
 ####PlotAll
 If you want to plot all available graphical representations (a quantitative stacked histogram, a heatmap and a dendrogram):<br>
@@ -254,9 +258,6 @@ where:
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
-![Overview of CNViewer:](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf?raw=true)
+An example can be found below:
 
-<iframe src="http://danonepre.housings.nexica.net/wp-content/uploads/2012/10/danone_informe_sostenibilidad_2011.pdf#zoom=100&view=fitH" frameborder="0" width="655" height="550" marginheight="0" marginwidth="0" id="pdf"></iframe>
-También puedes descargarte el PDF del informe <a href="/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf">aquí</a>
-
-
+`python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1 --plotAll 1`
