@@ -94,7 +94,7 @@ Please note that while generating the histogram, the following files are created
 
 #####TestIlluminaWithoutNormalization
 
-`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE [--lohToPlot LOH_TO_PLOT]`<br>
+`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
   * `REPORT_FILES` is the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -115,6 +115,7 @@ where:
     - the name of text file with one line per sample to process
     - the name of a Python dump file with the extension ".pyDump"
   * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
+  * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 #####TestIlluminaWithTQN
 
@@ -167,7 +168,7 @@ Both examples below require to download [aCNViewer_TEST_DATA.tar.gz](http://www.
 
 ####TestAffy2
 Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT]`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
@@ -180,6 +181,7 @@ where:
 * <a href="#centromereFile">`CENTROMERE_FILE`</a>
 * <a href="#windowSize">`WINDOW_SIZE`</a>
 * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 An example can be found below:
 
@@ -191,13 +193,14 @@ Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aC
 
 ####TestSequenzaCNVs
 Generate quantitative stacked histogram from Sequenza results with a window size of 2Mbp:<br>
-`python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT]`<br>
+`python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
 * <a href="#centromereFile">`CENTROMERE_FILE`</a>
 * <a href="#windowSize">`WINDOW_SIZE`</a>
 * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 An example can be found below:
 
@@ -210,7 +213,7 @@ Compare `TARGET_DIR/ascat_merged_hist_2000000nt.png` with `aCNViewer_TEST_DATA/w
 All the different graphs below require a sample file with at least one phenotypic / clinical information in order separate samples according to a given phenotypic / clinical group. All the previous commands can be adjusted to plot the chosen graph below by appending to each command the sample file and the chosen phenotypic / clinical column name. All the examples below will start from ASCAT segment file but could start from any previously described input.
 
 ####PlotHeatmaps
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --heatmap 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [--labRow LAB_ROW] [--labCol LAB_COL] [--cexCol CEX_COL] [--cexRow CEX_ROW] [--height HEIGHT] [--width WIDTH] [--margins MARGINS] [--hclust HCLUST] [--groupLegendPos GROUP_LEGEND_POS] [--chrLegendPos CHR_LEGEND_POS]`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --heatmap 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [--labRow LAB_ROW] [--labCol LAB_COL] [--cexCol CEX_COL] [--cexRow CEX_ROW] [--height HEIGHT] [--width WIDTH] [--margins MARGINS] [--hclust HCLUST] [--groupLegendPos GROUP_LEGEND_POS] [--chrLegendPos CHR_LEGEND_POS] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -227,7 +230,8 @@ where:
 * `MARGINS` is an optional parameter setting `margins` as a comma-separated string for heatmaps. The default value is `5,5`. See R heatmap.2 documentation for more details
 * <a id="hclust"></a>`HCLUST` is an optional parameter setting `hclust` method for heatmaps / dendrograms. See R heatmap.2 documentation for more details
 * `GROUP_LEGEND_POS` is an optional parameter setting the phenotypic / clinical feature legend's position within the heatmap. The default value is `topright` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
-# `CHR_LEGEND_POS` is an optional parameter setting the chromosome legend's position within the heatmap. The default value is `bottomleft` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
+* `CHR_LEGEND_POS` is an optional parameter setting the chromosome legend's position within the heatmap. The default value is `bottomleft` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 An example can be found below:
 
@@ -237,7 +241,7 @@ See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
 
 
 ####PlotDendrograms
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST]`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -247,6 +251,7 @@ where:
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `USE_SHAPE` is optional and tells whether colored shaped leaves should be used instead of sample names. The default value is `0`
 * <a href="#hclust">`HCLUST`</a>
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 An example can be found below:
 
