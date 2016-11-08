@@ -26,12 +26,14 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ##Dependencies:
 
-* APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process Affymetrix SNP arrays
+* APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
 
 * a recent version of R with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) installed for generating the different graphical outputs:
   + [ASCAT](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) (will be automatically installed if not already installed) if you are analyzing raw SNP array data
   + [Sequenza](https://cran.r-project.org/web/packages/sequenza/index.html) if you are analyzing paired (tumor / normal) bams
   + [plotrix](https://cran.r-project.org/web/packages/plotrix/index.html) for plotting dendrograms (will be automatically installed if not already installed)
+
+* [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into `BIN_DIR`) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
 * Python with version &ge; 2.5
 
@@ -50,11 +52,11 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ####Affymetrix
 
-Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
+Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
 
 #####Requirements:
 
-* Test data set [aCNViewer_TEST_DATA.tar.gz](https://drive.google.com/file/d/0B9ZcXWVM-9y1SDktTTBjVVd1ZVk/view?usp=sharing)
+* Test data set [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz)
 
 * Download [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it into `BIN_DIR`
 
@@ -161,7 +163,7 @@ Once Sequenza CNVs have been generated sucessfully, you can proceed to the [grap
 
 ###Processing CNV file
 
-Both examples below require to download [aCNViewer_TEST_DATA.tar.gz]().
+Both examples below require to download [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz).
 
 ####TestAffy2
 Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
