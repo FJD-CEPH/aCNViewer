@@ -61,16 +61,18 @@ Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where r
 
 
 #####TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
-`python aCNViewer.py -f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR`<br>
+`python aCNViewer.py -f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
 * <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
 * <a id="centromereFile"></a>`CENTROMERE_FILE`: : file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
-* `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
-* `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
+* `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files
+* `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
 * `GW6_DIR` refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array
+* <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only or "both" for cn-LOH and LOH. The default value is "cn-LOH"
+* <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 
 Here is an example:
 
@@ -90,7 +92,7 @@ Please note that while generating the histogram, the following files are created
 
 #####TestIlluminaWithoutNormalization
 
-`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE`<br>
+`python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE [--lohToPlot LOH_TO_PLOT]`<br>
 where:
   * `REPORT_FILES` is the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -105,11 +107,12 @@ where:
     - `Chr`
     - `MapInfo`
   * `ILLUMINA_PLATFORM`: name of ASCAT supported Illumina platform with a GC content file available ("Illumina660k" or "HumanOmniExpress12"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
-  * `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https) for available GC content files
+  * `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files
   * `SAMPLE_TO_PROCESS_FILE`: optional, used to specify list of samples to process in one of the following formats:
     - a comma-separated string listing all the samples to process
     - the name of text file with one line per sample to process
     - the name of a Python dump file with the extension ".pyDump"
+  * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 
 #####TestIlluminaWithTQN
 
@@ -162,7 +165,7 @@ Both examples below require to download [aCNViewer_TEST_DATA.tar.gz]().
 
 ####TestAffy2
 Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
-`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
+`python aCNViewer.py -f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT]`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
@@ -174,6 +177,7 @@ where:
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
 * <a href="#centromereFile">`CENTROMERE_FILE`</a>
 * <a href="#windowSize">`WINDOW_SIZE`</a>
+* <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 
 An example can be found below:
 
@@ -185,12 +189,13 @@ Compare `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` with `aC
 
 ####TestSequenzaCNVs
 Generate quantitative stacked histogram from Sequenza results with a window size of 2Mbp:<br>
-`python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR`<br>
+`python aCNViewer.py -f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT]`<br>
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
 * <a href="#centromereFile">`CENTROMERE_FILE`</a>
 * <a href="#windowSize">`WINDOW_SIZE`</a>
+* <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 
 An example can be found below:
 
