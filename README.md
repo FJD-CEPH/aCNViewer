@@ -127,10 +127,10 @@ Same command as above with `-n 1` instead of `-n 0`.
 
 ######CreateSequenzaCNVs
 
-Here are the different options available, with the most relevant option first, to generate Sequenza CNVs when analyzing paired bam files:
+This step requires an access to cluster (supported clusters are SGE, SLURM, MOAB and LSF. Tests have been sucessfully made on SGE and SLURM environments). Here are the different options available, with the most relevant option first, to generate Sequenza CNVs when analyzing paired bam files:
 
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):<br>
-`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`<br>
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 [-M MEMORY] [> LOG_FILE]`<br>
 where:
   * `BAM_DIR` refers to the location of the bam files
   * `BAM_FILE_PATTERN` is optional and is used when there are several bams associated to one sample. The default value is ".bam"
@@ -140,23 +140,23 @@ where:
     - `seqFile`
     - `patientType` with value "N" for normal or "T" for tumor
   * `NB_THREADS` indicates the number of threads that will be used to create chromosomal seqz files for each sample pair
-  * `MEMORY` in GB to run Sequenza. The default value is 8 (GB) ans should work for most WES analysis
+  * `MEMORY`: optional argument specifying allocated memory in GB to run Sequenza. The default value is 8 (GB) and should work for most WES analysis
   * `LOG_FILE` is optional and will keep a record of all the submitted jobs if specified
 
 
 2. run Sequenza with intermediary mpileup file creation and by chromosomes (use this option only if Sequenza is freezing on some chromosomes):
 the command is the same as above with `createMpileUp` set to `1`:<br>
-`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 [-M MEMORY] [> LOG_FILE]`
 
 
 3. run Sequenza without intermediary mpileup file creation on the whole bams (not recommended as it is slower than the previous 2 steps):
 the command is the same as in 1 with `byChr` set to 0 or removed from the command and without `-n`:<br>
-`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 [--byChr 0] -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 [--byChr 0] [-M MEMORY] [> LOG_FILE]`
 
 
 4. run Sequenza with intermediary mpileup file creation on the whole bams (only if step 1, 2 and 3 failed):
 the command is the same as above with `createMpileUp` set to `1`:<br>
-`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -d BAM_DIR [--pattern BAM_FILE_PATTERN] -o TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 [--byChr 0] -M MEMORY [> LOG_FILE]`
+`python aCNViewer.py -P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 [--byChr 0] [-M MEMORY] [> LOG_FILE]`
 
 Once Sequenza CNVs have been generated sucessfully, you can proceed to the [graph generation](#testsequenzacnvs).
 
@@ -182,7 +182,7 @@ where:
 * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-An example can be found below:
+==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR`
 
@@ -201,7 +201,7 @@ where:
 * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-An example can be found below:
+==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/wes/ --fileType Sequenza -c aCNViewer_TEST_DATA/wes/hg19.chrom.sizes -t TARGET_DIR --histogram 1 -C aCNViewer_TEST_DATA/wes/centro_hg19.txt -w 2000000 -b BIN_DIR`
 
@@ -232,7 +232,7 @@ where:
 * `CHR_LEGEND_POS` is an optional parameter setting the chromosome legend's position within the heatmap. The default value is `bottomleft` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-An example can be found below:
+==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
@@ -252,7 +252,7 @@ where:
 * <a href="#hclust">`HCLUST`</a>
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-An example can be found below:
+==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1`
 
@@ -272,6 +272,6 @@ where:
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
-An example can be found below:
+==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1 --plotAll 1`
