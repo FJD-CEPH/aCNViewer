@@ -52,14 +52,13 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ####Affymetrix
 
-Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
-
 #####Requirements:
 
 * Test data set [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz)
 
 * Download [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it into `BIN_DIR`
 
+Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
 
 
 #####TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
@@ -68,7 +67,7 @@ where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
 * <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
-* <a id="centromereFile"></a>`CENTROMERE_FILE`: : file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* <a id="centromereFile"></a>`CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
 * `ASCAT_GC_FILE`: GC content file necessary for ASCAT GC correction when analyzing SNP array data. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files
 * `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
@@ -76,7 +75,7 @@ where:
 * <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only or "both" for cn-LOH and LOH. The default value is "cn-LOH"
 * <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 
-Here is an example:
+==**Here is an example:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
 
