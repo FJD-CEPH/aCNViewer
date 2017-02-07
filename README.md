@@ -20,6 +20,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * [Plot heatmaps](#plotheatmaps)
     * [Plot dendrograms](#plotdendrograms)
     * [plot all](#plotall)
+  + [Output files](#outputfiles)
   
 
 ***
@@ -279,3 +280,29 @@ where:
 ==**An example can be found below:**==
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1 --plotAll 1`
+
+
+###OutputFiles
+
+####ASCAT
+
+When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CNV profiles. These results are saved into a folder named `ASCAT` in the user selected target directory with the following files:
+* `*.segments.txt`: file containing ASCAT predicted CNV segments
+* `*.ascatInfo.txt`: file containing the following ASCAT values for all the samples: `aberrantcellfraction`, `goodnessOfFit`, `psi` and `ploidy`
+* `*.png`: the various ASCAT graphical outputs
+
+
+####HistogramOutputs
+
+When generating histograms, 3 text files with the suffix `_samples.txt` will be created along:
+* one with all the genomic segments
+* one with only the LOH events (file with suffix `_loh_samples.txt`)
+* one with only the cn-LOH (file with suffix `_cnLoh_samples.txt`)
+
+Each file is in the same format with the following columns:
+* `CNV key`: the relative copy number value compared to the tumor ploidy
+* `chrName`
+* `start`
+* `segmentLength`
+* `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, `start`, `start + segmentLength`)
+* `samples`: the list of the samples falling in the above category
