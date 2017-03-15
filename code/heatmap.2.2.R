@@ -102,14 +102,16 @@ myHist <- function(x,
       scale <- if(symm && missing(scale)) "none" else match.arg(scale)
       trace <- match.arg(trace)
       density.info <- match.arg(density.info)
-      mar <- c(5, 4, 2, 1)
+      mar <- c(10, 2.5, 2, 0)
       if (!is.null(key.xlab) && is.na(key.xlab))
           mar[1] <- 2
       if (!is.null(key.ylab) && is.na(key.ylab))
           mar[2] <- 2
       if (!is.null(key.title) && is.na(key.title))
           mar[3] <- 1
-      par(mar = mar, cex=0.75, mgp=c(2, 1, 0))
+      #print(paste(c("mar=", mar)))
+
+      par(mar = mar, cex=0.65, mgp=c(2, 1, 0))
       if (length(key.par) > 0)
           do.call(par, key.par)
       tmpbreaks <- breaks
@@ -126,7 +128,7 @@ myHist <- function(x,
           min.raw <- min.breaks
           max.raw <- max.breaks
         }
-
+      #print(paste(c("min.raw=", min.raw, ", max.raw=", max.raw)))
       z <- seq(min.raw, max.raw, by=min(diff(breaks)/100))
       image(z=matrix(z, ncol=1),
             col=col, breaks=tmpbreaks,
@@ -134,9 +136,27 @@ myHist <- function(x,
 
       par(usr=c(0,1,0,1))
       if (is.null(key.xtickfun)) {
-          lv <- pretty(breaks, n = max.raw+1)
+          if (min(x) > 0){
+              lab <- c(0:8, "+")
+			  maxN <- max.raw+1
+			  maxRaw <- max.raw+1
+          }
+          else{
+              lab <- min.raw:max.raw
+              maxN <- max.raw - min.raw + 2
+              maxRaw = max.raw
+          }
+          #print(paste(c("maxN=", maxN)))
+          #print(paste(c("l=", lab)))
+	  #print(paste("LB=", length(breaks)))
+	  #print(paste(c("B=", breaks)))
+
+          lv <- pretty(breaks, n = maxN)
           xv <- scale01(as.numeric(lv), min.raw, max.raw+1)
-          xargs <- list(at=xv, labels=c(0:8, "+"))
+          #print(paste(c("b=", breaks)))
+          #print(paste(c("lv=", lv)))
+          #print(paste(c("xv=", xv)))
+          xargs <- list(at=xv, labels=lab)
       } else {
           xargs <- key.xtickfun()
       }
@@ -317,6 +337,7 @@ heatmap.2.1 <- function (x,
 
                        ## extras
                        extrafun=NULL,
+		       usedColorList=NULL,
                        ...
                        )
 {
@@ -871,15 +892,23 @@ heatmap.2.1 <- function (x,
     {
       maxValue <- 9
       #print(paste("max = ", max(x)))
-      x[x >= maxValue] <- maxValue
-      max.breaks <- maxValue
-      #print(paste("max.breaks = ", max.breaks))
+      minX = min(x)
+      if (minX >= 0){
+          x[x >= maxValue] <- maxValue
+          max.breaks <- maxValue
+	  colList <- col[0:maxValue+1]
+      }
+      else{
+	  max.breaks <- 6
+          colList <- col
+      }
+      #print(paste("max.breaks = ", max.breaks, ", min.breaks=", min.breaks))
       #print(paste("max = ", max(x)))
       #print(breaks)
       #print(col)
       #print(paste(c("COLO", col[1:maxValue+1])))
       #print(paste(c("COLO2", col[0:maxValue+1])))
-      myHist(x, breaks = NULL, key.xlab = key.xlab, key.ylab = key.ylab, key.title = key.title, key.par = key.par, symkey = symkey, na.rm = na.rm, key.xtickfun = key.xtickfun, col = col[0:maxValue+1],
+      myHist(x, breaks = NULL, key.xlab = key.xlab, key.ylab = key.ylab, key.title = key.title, key.par = key.par, symkey = symkey, na.rm = na.rm, key.xtickfun = key.xtickfun, col = colList, symbreaks=symbreaks,
       denscol = denscol, key.ytickfun = key.ytickfun, trace = trace, linecol = linecol, min.breaks = min.breaks, max.breaks = max.breaks)
 
     }

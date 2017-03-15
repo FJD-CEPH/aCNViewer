@@ -2999,6 +2999,9 @@ dev.off()
             legendColorList.append(color)
             for sampleName in groupDict.getall(groupName):
                 groupStr += '"%s" = "%s", ' % (sampleName, color)
+        if self.__sampleToGroupDict:
+            legendList = [legend for legend in legendList if legend in self.__sampleToGroupDict.values()]
+            legendColorList = legendColorList[:len(legendList)]
         groupStr = groupStr[:-2] + ')\n\n'
         if idx is None:
             idx = ''
@@ -3075,22 +3078,87 @@ for (pos in colnames(a)){
                                           R()._getStrFromList(legendColorList))
         return rStr, legendStr
 
+    def __getCopyNbValueSetFromFile(self, matrixFile):
+        fh = ReadFileAtOnceParser(matrixFile)
+        header = fh.getSplittedLine()
+        valueSet = set()
+        for splittedLine in fh:
+            valueSet |= set(splittedLine[1:])
+        return valueSet
+    
+    def __getRedBlueColorListValueList(self, nbValues):
+        fh = R(self.__binDir)._execString('library(gplots); redblue(%d)' % (nbValues * 2 + 1), True)
+        colorList = []
+        for line in fh.read().split('\n'):
+            line = line.strip()
+            if not line or line[0] != '[':
+                continue
+            colorList += line.split()[1:]
+        return colorList
+    
+    def __getColorListForHeatmapGainsAndLosses(self, valueSet):
+        positiveValueList = [int(value) for value in valueSet if int(value) > 0]
+        negativeValueList = [int(value) for value in valueSet if int(value) < 0]
+        colorList = self.__getRedBlueColorListValueList(max(positiveValueList))
+        whiteColor = '"#FFFFFF"'
+        idx = colorList.index(whiteColor)
+        colorList = colorList[idx+1:]
+        colorList2 = self.__getRedBlueColorListValueList(abs(min(negativeValueList)))
+        idx = colorList2.index(whiteColor)
+        colorList = colorList2[:idx+1] + colorList
+        colorList = [color.strip('"') for color in colorList]
+        return colorList
+    
+    def __getHeatmapColorListToUse(self, colorList, valueSet):
+        valueList = [int(value) for value in valueSet]
+        if min(valueList) < 0:
+            expectedValueList = range(-4, 7)
+        else:
+            expectedValueList = range(0, 10)
+        missingValueSet = set(expectedValueList) - set(valueList)
+        colorToUseList = []
+        missingIdxList = []
+        for missingValue in missingValueSet:
+            idx = expectedValueList.index(missingValue)
+            missingIdxList.append(idx)
+        colorToUseList = [colorList[idx] for idx in range(len(colorList)) if idx not in missingIdxList]
+        return colorToUseList
+    
     def __createHeatmap2(self, matrixFile, hclustStr, height, width, cexRow,
                          cexCol, margins, labRowStr, labColStr, groupDict,
-                         hclust, groupLegendPos, chrLegendPos):
+                         hclust, groupLegendPos, chrLegendPos,
+                         useRelativeCopyNbForClustering,
+                         keepGenomicPosForHistogram):
         # groupStr, colColorStr, legendStr =
         # self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(groupDict)
-        groupStr = self.__getColorRstr(matrixFile, hclust)
+        groupStr = self.__getColorRstr(matrixFile, hclust,
+                                       useRelativeCopyNbForClustering,
+                                       keepGenomicPosForHistogram)
         rowSideStr, rowLegendStr = self.__getRowSideColorsStr(chrLegendPos)
         rowColorStr = ', RowSideColors = rowColorList'
         # labRow = %(labRow)s, labCol = %(labCol)s
         groupLegendPosStr = self.__getCoordinateFromStr(
             groupLegendPos, 'topright')
-        colorList = ['red', 'orange', 'yellow', 'green', 'deepskyblue',
-                     'blue', 'purple3', 'magenta', 'orchid1', 'black']
+        valueSet = self.__getCopyNbValueSetFromFile(matrixFile)
+        if useRelativeCopyNbForClustering:
+            colorList = self.__getColorListForHeatmapGainsAndLosses(valueSet)
+        else:
+            colorList = ['red', 'orange', 'yellow', 'green', 'deepskyblue',
+                         'blue', 'purple3', 'magenta', 'orchid1', 'black']
+        usedColorList = self.__getHeatmapColorListToUse(colorList, valueSet)
         rColorList = self.__rColorDict.get('heatmap')
         if rColorList:
             colorList = rColorList
+        heatmapColorStr = 'c(colorList[1:9], rep(colorList[10], max(a)-8))'
+        if useRelativeCopyNbForClustering:
+            heatmapColorStr = 'colorList'
+        hrStr = 'hr <- hclust(dist(t(a)), method="%s")' % hclust
+        rowVstr = 'as.dendrogram(hr)'
+        dendroStr = ''
+        if keepGenomicPosForHistogram:
+            hrStr = ''
+            rowVstr = '"NA"'
+            dendroStr = ', dendrogram="column"'
         rStr = '''library("RColorBrewer")
 library("gplots")
 
@@ -3098,8 +3166,8 @@ source("%(dirName)s/heatmap.2.2.R")
 
 a<-(as.matrix(read.csv2("%(inputFile)s", h=T, row.names=1, sep="\t")))
 
-hr <- hclust(dist(t(a)))
-hc <- hclust(dist(a))
+%(hrStr)s
+hc <- hclust(dist(a), method="%(hclustMethod)s")
 
 %(groupStr)s
 
@@ -3117,15 +3185,16 @@ for (colColorList in allColColorList){
     #%(labRowStr)s%(labColStr)s%(rowColorStr)s)
 
     colorList <- %(colorStr)s
+    usedColorList <- %(usedColorStr)s
     #col=c(c("red", "orange", "yellow", "green", "deepskyblue", "blue",
     #"purple3", "magenta", "orchid1"), rep("black", max(a)-8))
-    heatmap.2.1(t(a), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc),
+    heatmap.2.1(t(a), Rowv=%(rowVstr)s, Colv=as.dendrogram(hc),
     margins=%(marginStr)s, key=TRUE, symkey=FALSE, denscol="gray25",
     lhei = c(2.5, 5), key.xlab = "CNV value", trace="none", scale="none",
-    col=c(colorList[1:9], rep(colorList[10], max(a)-8)), cexRow=%(cexRow)f,
+    col=%(heatmapColorStr)s, cexRow=%(cexRow)f,
     cexCol=%(cexCol)f, ColSideColors =
     colColorList$colColorList%(hclustStr)s%(labRowStr)s%(labColStr)s
-    %(rowColorStr)s)
+    %(rowColorStr)s, usedColorList=usedColorList, symbreaks=F%(dendroStr)s)
 
     #h <- hist(t(a), plot = FALSE, breaks=breaks)
             #hx <- scale01(breaks, min.raw, max.raw)
@@ -3176,7 +3245,11 @@ for (colColorList in allColColorList){
                        'rowSideStr': rowSideStr, 'rowColorStr': rowColorStr,
                        'dirName': os.path.dirname(os.path.abspath(__file__)),
                        'groupLegendPos': groupLegendPosStr,
-                       'colorStr': R()._getStrFromList(colorList)}
+                       'colorStr': R()._getStrFromList(colorList),
+                       'heatmapColorStr': heatmapColorStr,
+                       'usedColorStr': R()._getStrFromList(usedColorList),
+                       'hclustMethod': hclust, 'hrStr': hrStr,
+                       'rowVstr': rowVstr, 'dendroStr': dendroStr}
         R().runCmd(rStr, FileNameGetter(matrixFile).get('_heatmap_%s.R' %
                                                         hclust))
 
@@ -3367,7 +3440,9 @@ dev.off()
                 groupDict[colName][groupName] = sampleName
         return groupDict, groupListDict
 
-    def __getColorRstr(self, matrixFile, hclust):
+    def __getColorRstr(self, matrixFile, hclust,
+                       useRelativeCopyNbForClustering,
+                       keepGenomicPosForHistogram):
         groupDict, groupListDict = self.__getGroupDictDictAndGroupListDict()
         rStr = ''
         for i, colName in enumerate(groupDict.keys()):
@@ -3384,8 +3459,10 @@ $title <- "%(title)s"\n' % {'i': i,
                             'legendColorList': R()._getStrFromList(
                                 legendColorList),
                             'outFileName': FileNameGetter(matrixFile).get(
-                                '_heatmap_%s_%s.pdf' % (colName.replace(
-                                    ' ', '_').replace('/', '-'), hclust)),
+                                '_heatmap_%s_%s_%d%d.pdf' % (colName.replace(
+                                    ' ', '_').replace('/', '-'), hclust,
+                             int(useRelativeCopyNbForClustering),
+                             int(keepGenomicPosForHistogram))),
                             'title': colName}
             rStr += groupStr
         rStr += '\nallColColorList <- list(%s)\n' % (
@@ -3442,7 +3519,8 @@ $title <- "%(title)s"\n' % {'i': i,
     def _createHeatmap(self, matrixFile, hclust=None, height=None, width=None,
                        cexRow=None, cexCol=None, margins=None, labRow=None,
                        labCol=None, groupDict=None, groupLegendPos=None,
-                       chrLegendPos=None):
+                       chrLegendPos=None, useRelativeCopyNbForClustering=False,
+                       keepGenomicPosForHistogram=False):
         #self.__installHeatmapPackages()
         matrixFile = os.path.abspath(matrixFile)
         if not height:
@@ -3464,6 +3542,8 @@ $title <- "%(title)s"\n' % {'i': i,
             labRowStr = ', labRow = FALSE'
         if not labCol:
             labColStr = ', labCol = FALSE'
+        if hclust is None:
+            hclust = 'ward'
         if hclust:
             hclustStr = ", hclustfun = function(x) hclust(x,method = '%s')" % \
                 hclust
@@ -3478,7 +3558,9 @@ $title <- "%(title)s"\n' % {'i': i,
         # cexCol, margins, labRowStr, labColStr, groupDict, outFileName)
         self.__createHeatmap2(matrixFile, hclustStr, height, width, cexRow,
                               cexCol, margins, labRowStr, labColStr, groupDict,
-                              hclust, groupLegendPos, chrLegendPos)
+                              hclust, groupLegendPos, chrLegendPos,
+                              useRelativeCopyNbForClustering,
+                              keepGenomicPosForHistogram)
 
     def __getSampleShapeAndColorFunctionStr(self, groupDict, groupList):
         colorFuncStr = shapeFuncStr = ''
@@ -3626,6 +3708,8 @@ m <- b
                 '_dendro_%s.png' % colName.replace(' ', '_'))
             if keyword:
                 imgFile = FileNameGetter(imgFile).get('_%s.png' % keyword)
+            if self.__sampleToGroupDict:
+                groupList = [groupName for groupName in groupList if groupName in self.__sampleToGroupDict.values()]
             rStr += '''%(getColorFuncStr)s
 
 %(getShapeFuncStr)s
@@ -3678,8 +3762,16 @@ for (obj in allFunctionList){
         # Utilities.mySystem(cmd)
         R(self.__binDir).runCmd(rStr, rFileName)
 
+    def __getPloidyValue(self, ploidy, ploidyDict, sampleName, useRelativeCopyNbForClustering):
+        if useRelativeCopyNbForClustering:
+            defaultPloidy = ploidyDict[sampleName.split('_')[0]]
+            ploidy -= defaultPloidy
+            ploidy = self.__getPloidyKeyFromPloidy(ploidy)
+        return ploidy
+        
     def __createMatrixFile(self, matrixDict, targetDir, keyword='',
-                           ploidyFile=None):
+                           ploidyFile=None, useRelativeCopyNbForClustering=False,
+                           ploidyDict=None):
         try:
             from stats import getAvgAndStdDevFromList
         except ImportError:
@@ -3707,7 +3799,8 @@ for (obj in allFunctionList){
                 if groupIdx is not None and not splittedLine[groupIdx]:
                     continue
             dataList = matrixDict[sampleName]
-            ploidyLine = [ploidy for chrPos, ploidy in dataList]
+            ploidyLine = [self.__getPloidyValue(ploidy, ploidyDict, sampleName, useRelativeCopyNbForClustering) for chrPos, ploidy in dataList]
+                        
             # if len(set(ploidyLine)) == 1:
             # print 'Excluding sample %s' % sampleName
             # continue
@@ -3964,7 +4057,8 @@ for (obj in allFunctionList){
                 width=None, cexRow=None, cexCol=None, margins=None,
                 labRow=None, labCol=None, groupLegendPos=None,
                 chrLegendPos=None, fileType=None, keepCentromereData=False,
-                lohToPlot=None):
+                lohToPlot=None, useRelativeCopyNbForClustering = False,
+                keepGenomicPosForHistogram = False):
         originalTargetDir = targetDir
         if targetDir:
             targetDir = os.path.join(targetDir, 'tmp')
@@ -4083,7 +4177,8 @@ Sequenza results but found "%s"' % ascatFile)
                     currentCentromereDict)
         if plotAll or dendrogram or heatmap:
             matrixFile = self.__createMatrixFile(
-                matrixDict, targetDir, None, ploidyFile)
+                matrixDict, targetDir, None, ploidyFile, useRelativeCopyNbForClustering,
+                ploidyDict)
         if plotAll or dendrogram:
             cluster = ThreadManager(_getNbAvailableCpus())
             if not self.__groupColumnName and _isCustom:
@@ -4131,8 +4226,10 @@ Sequenza results but found "%s"' % ascatFile)
         if plotAll or heatmap:
             self._createHeatmap(matrixFile, hclust, height, width, cexRow,
                                 cexCol, margins, labRow, labCol, groupDict,
-                                groupLegendPos, chrLegendPos)
-        self.__cleanDir(targetDir)
+                                groupLegendPos, chrLegendPos,
+                                useRelativeCopyNbForClustering,
+                                keepGenomicPosForHistogram)
+        #self.__cleanDir(targetDir)
 
 
 class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -4260,7 +4357,9 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                       chrLegendPos=options.chrLegendPos,
                       fileType=options.fileType,
                       keepCentromereData=options.keepCentromereData,
-                      lohToPlot=options.lohToPlot)
+                      lohToPlot=options.lohToPlot,
+                      useRelativeCopyNbForClustering=options.useRelativeCopyNbForClustering,
+                      keepGenomicPosForHistogram=options.keepGenomicPosForHistogram)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all',
                                             CommandParameterType.BOOLEAN,
@@ -4383,6 +4482,9 @@ histograms'),
 
                            CommandParameter('keepCentromereData',
                                             CommandParameterType.BOOLEAN),
+                           
+                           CommandParameter('keepGenomicPosForHistogram',
+                                            CommandParameterType.BOOLEAN),
 
                            CommandParameter('l', 'libDir', 'string',
                                             helpString='Affymetrix library \
@@ -4503,7 +4605,12 @@ the output folder'),
                            CommandParameter('tumorBam', 'string',
                                             helpString='Sequenza parameter \
 indicating tumor bam file'),
-
+                           
+                           CommandParameter('useRelativeCopyNbForClustering',
+                                            CommandParameterType.BOOLEAN,
+                                            helpString='Tells whether '),
+                           
+                           
                            CommandParameter('u', 'useShape',
                                             CommandParameterType.BOOLEAN,
                                             defaultValue=False,
