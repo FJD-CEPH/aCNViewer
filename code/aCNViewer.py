@@ -287,6 +287,47 @@ class RunAscat:
         self.__binDir = binDir
         self.__rLibDir = rLibDir
 
+    def __writeMarkersAndGetNewMarkerNb(self, chrName, start, end, markerNb, outFh, snpDict):
+        if (chrName, start) not in snpDict:
+            outFh.write(['m%d' % markerNb, chrName, start])
+            snpDict[(chrName, start)] = None
+        markerNb += 1
+        step = 10000
+        for i in range(start+step, end, step):
+            if end - i < step:
+                break
+            if (chrName, i) not in snpDict:
+                outFh.write(['m%d' % markerNb, chrName, i])
+                snpDict[(chrName, i)] = None
+            markerNb += 1
+        if (chrName, end) not in snpDict:
+            outFh.write(['m%d' % markerNb, chrName, end])
+            snpDict[(chrName, end)] = None
+        markerNb += 1
+        return markerNb
+    
+    def _convertSegmentFileIntoGisticFormat(self, fileName, outFile = None):
+        if not outFile:
+            outFile = FileNameGetter(fileName).get('_gistic.txt')
+        outFh = CsvFileWriter(outFile)
+        markerFh = CsvFileWriter(FileNameGetter(outFile).get('_markers.txt'))
+        fh = ReadFileAtOnceParser(fileName)
+        header = fh.getSplittedLine()
+        snpDict = {}
+        markerNb = 1
+        for splittedLine in fh:
+            start, end = splittedLine[2:4]
+            start = int(start)
+            end = int(end)
+            
+            oldMarkerNb = markerNb
+            markerNb = self.__writeMarkersAndGetNewMarkerNb(splittedLine[1], start, end, markerNb, markerFh, snpDict)
+            nbCopies = int(splittedLine[4]) + int(splittedLine[5])
+            if not nbCopies:
+                nbCopies += 1e-10
+            outFh.write(splittedLine[:4] + [markerNb - oldMarkerNb, math.log(nbCopies, 2)-1])
+            
+        
     def __createGroupFilesAndGetHeaderAndPloidyIdx(self, ploidyFile,
                                                    targetDir):
         fh = ReadFileAtOnceParser(ploidyFile)
@@ -1239,15 +1280,20 @@ class RunSequenza:
             bamFile, refFile, mpileUpFile, chrName)
         Utilities.mySystem(cmd)
 
-    def __getBamDictFromDirAndPattern(self, bamDir, pattern):
+    def __getBamDictFromDirAndPattern(self, bamDir, pattern, targetDir):
         bamDict = {}
+        targetDir = os.path.join(targetDir, 'tmp', 'bams')
         for bamFile in os.popen('find %s -follow -name "*%s"' % (bamDir,
                                                                  pattern)):
             bamFile = bamFile.strip()
             # sampleName, fcName, uplex =
             # IlluminaRun().getSampleNameRunNameAndUplexFromPath(bamFile)
             sampleName = os.path.basename(bamFile).split('.')[0]
-            bamDict[sampleName] = bamFile
+            currentTargetDir = os.path.join(targetDir, sampleName)
+            Utilities.mySystem('mkdir -p %s' % currentTargetDir)
+            targetFileName = os.path.join(currentTargetDir, os.path.basename(bamFile))
+            os.system('ln -s %s %s' % (FileNameGetter(bamFile).get('ba*'), currentTargetDir))
+            bamDict[sampleName] = targetFileName
         return bamDict
 
     def __appendMpileUpCreation(self, bamFile, refFile, cmdList):
@@ -1283,7 +1329,7 @@ class RunSequenza:
 
     def __appendSeqzFileCreation(self, tumorBam, normalBam, refFile, gcFile,
                                  cmdList, targetDir, createPileUp, byChr):
-        outFileName = os.path.join(targetDir, '%s_%s.seqz.gz' % (
+        outFileName = os.path.join(targetDir, 'tmp', '%s_%s.seqz.gz' % (
             os.path.basename(tumorBam).split('.')[0],
             os.path.basename(normalBam).split('.')[0]))
         cmd = 'python %s -P seqz --normalBam %s --tumorBam %s -r %s --gcFile %s\
@@ -1444,7 +1490,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             if self.__binDir:
                 cmd += ' -b %s' % self.__binDir
             cmdList.append((currentOutFileName, FileNameGetter(
-                currentOutFileName).get('R'), Cmd(cmd, memory=memory)))
+                currentOutFileName).get('R'), Cmd(cmd, memory=memory,
+                                                  nbCpus=self.__nbCpus)))
 
     def __createSeqzFile(self, tumorBam, normalBam, refFile, gcFile,
                          outFileName, createPileUp, chrName):
@@ -1477,8 +1524,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             self.__binStr, self.__getSequenzaUtils(), progName, normalBam,
             tumorBam, gcFile, optionStr, outFileName)
         Utilities.mySystem(cmd, scriptFile)
-        if createPileUp:
-            Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
+        #if createPileUp:
+            #Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
 
     def __getChrList(self, refFile, byChr=False):
         chrList = [None]
@@ -1496,8 +1543,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
     def __mergeSeqzFilesAndClean(self, outFileName, refFile):
         MergeAnnotationFiles().process(outFileName.replace(
             '.seqz.gz', '_%s.seqz.gz'), outFileName, refFile, True)
-        Utilities.mySystem('rm %s' %
-                           outFileName.replace('.seqz.gz', '_*.seqz.gz'))
+        #Utilities.mySystem('rm %s' %
+        #outFileName.replace('.seqz.gz', '_*.seqz.gz'))
 
     def _createSeqzFile(self, tumorBam, normalBam, refFile, gcFile,
                         outFileName, createPileUp=False, byChr=False):
@@ -1534,10 +1581,10 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
 
     def process(self, sampleFile, dirName, pattern, targetDir, refFile,
                 createPileUp=False, byChr=False):
+        Utilities.mySystem('mkdir -p %s' % os.path.join(targetDir, 'tmp'))
         bamDict = Utilities.getFunctionResultWithCache(
-            os.path.join(dirName, 'bamDictSequenza.pyDump'),
-            self.__getBamDictFromDirAndPattern, dirName, pattern)
-        Utilities.mySystem('mkdir -p %s' % targetDir)
+            os.path.join(targetDir, 'tmp', '%s_bamDictSequenza.pyDump' % os.path.basename(dirName.rstrip(os.path.sep))),
+            self.__getBamDictFromDirAndPattern, dirName, pattern, targetDir)
         if not os.path.isfile(sampleFile):
             sampleFile = sampleFile.split(',')
         if isinstance(sampleFile, types.ListType):
@@ -1548,6 +1595,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         cmdList = []
         gcFile = self.__appendGcFileCreation(refFile, cmdList)
         for tumorSample, normalSample in sampleList:
+            print 'Processing sample pair (%s, %s)' % (tumorSample, normalSample)
             tumorBam = bamDict[tumorSample]
             normalBam = bamDict[normalSample]
             # self.__appendMpileUpCreation(tumorBam, refFile, cmdList)
@@ -1556,12 +1604,16 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
                 tumorBam, normalBam, refFile, gcFile, cmdList, targetDir,
                 createPileUp, byChr)
             self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
+        print '#' * 100
+        for i,o,cmd in cmdList:
+            print i,o,cmd.cmd, cmd.nbCpus
+        print '#' * 40
         if not ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-                cmdList, refFile, cluster=guessHpc()):
+                cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus)):
             cmdList = []
             self.__appendAscatFileCreation(targetDir, cmdList)
             ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-                cmdList, refFile, cluster=guessHpc())
+                cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus))
 
 
 class aCNViewer:
@@ -2543,7 +2595,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         sampleFh = CsvFileWriter(FileNameGetter(fileName).get('_samples.txt'))
         sampleFh.write(['CNV key', 'chrName', 'start',
                         'segmentLength', 'percentage', 'samples'])
-        maxValue = lohFileName = None
+        maxValue = lohFileName = lohFileName2 = None
         if lohDataDict:
             lohFileName = os.path.join(targetDir, '%s_%s_hist_%s_cnLoh.txt' % (
                 baseName, keyword, self.__suffix))
@@ -4294,6 +4346,9 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
     elif options.progName == 'createFileWithUpdatedPositions':
         RunAscat(options.binDir)._createFileWithUpdatedPositions(
             options.fileName, options.probeFile, options.targetBuild)
+    elif options.progName == 'convertToGistic':
+        RunAscat()._convertSegmentFileIntoGisticFormat(options.fileName,
+                                                       options.outFileName)
     elif options.progName == 'dendroFeatures':
         RunAscat(options.binDir)._createDendrogramForEachFeature(
             options.fileName, options.targetDir, options.windowSize,

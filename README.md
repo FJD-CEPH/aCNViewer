@@ -1,9 +1,9 @@
-#aCNViewer
+# aCNViewer
 comprehensive genome-wide visualization of absolute copy number and copy neutral variations
 
 **Contact:** Victor Renault / Alexandre How-Kit (aCNViewer@cephb.fr)
 
-##Table of contents
+## Table of contents
 - [Dependencies](#dependencies)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
@@ -25,7 +25,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ***
 
-##Dependencies:
+## Dependencies:
 
 * APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
 
@@ -39,7 +39,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 * Python with version &ge; 2.5
 
 
-##Overview:
+## Overview:
 ![Overview of aCNViewer:](/img/aCNViewer.png?raw=true "Overview of aCNViewer")  
 
 
@@ -47,13 +47,13 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 ***
 
 
-##Tutorial
+## Tutorial
 
-###Processing raw data
+### Processing raw data
 
-####Affymetrix
+#### Affymetrix
 
-#####Requirements:
+##### Requirements:
 
 * Test data set [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz)
 
@@ -62,7 +62,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
 
 
-#####TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
+##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/ -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_TEST_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_TEST_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_TEST_DATA/snpArrays250k_sty/gw6/`
 
@@ -91,9 +91,9 @@ where:
 * <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 
 
-####Illumina
+#### Illumina
 
-#####TestIlluminaWithoutNormalization
+##### TestIlluminaWithoutNormalization
 
 `python aCNViewer.py -f REPORT_FILES -c CHR_SIZE_FILE --histogram 1 -m 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] -n 0 --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM -g ASCAT_GC_FILE [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
@@ -118,16 +118,16 @@ where:
   * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
   * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-#####TestIlluminaWithTQN
+##### TestIlluminaWithTQN
 
 Same command as above with `-n 1` instead of `-n 0`.
 
 
-####NGS
+#### NGS
 
-#####ExampleSequenza: 
+##### ExampleSequenza: 
 
-######CreateSequenzaCNVs
+###### CreateSequenzaCNVs
 
 This step requires an access to cluster (supported clusters are SGE, SLURM, MOAB and LSF. Tests have been sucessfully made on SGE and SLURM environments). Here are the different options available, with the most relevant option first, to generate Sequenza CNVs when analyzing paired bam files:
 
@@ -163,11 +163,11 @@ the command is the same as above with `createMpileUp` set to `1`:<br>
 Once Sequenza CNVs have been generated sucessfully, you can proceed to the [graph generation](#testsequenzacnvs).
 
 
-###Processing CNV file
+### Processing CNV file
 
 Both examples below require to download [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz).
 
-####TestAffy2
+#### TestAffy2
 Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
 
 [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) is required to run this example.
@@ -196,7 +196,7 @@ where:
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 
-####TestSequenzaCNVs
+#### TestSequenzaCNVs
 Generate quantitative stacked histogram from Sequenza results with a window size of 2Mbp:<br>
 
 [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) is required to run this example.
@@ -218,10 +218,10 @@ where:
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 
-###Other plots
+### Other plots
 All the different examples below **require a sample file** with at least one phenotypic / clinical information in order separate samples according to a given phenotypic / clinical group. All the previous commands can be adjusted to plot the chosen graph below by appending to each command the sample file and the chosen phenotypic / clinical column name. All the examples below will start from ASCAT segment file but could start from any previously described input. [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) is required to run all the following examples.
 
-####PlotHeatmaps
+#### PlotHeatmaps
 
 <u>Heatmap with relative copy number values:</u>
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
@@ -259,7 +259,7 @@ where:
 * `USE_RELATIVE_COPY_NB_FOR_CLUSTERING` is an optional parameter specifying whether the CNV matrix used for the heatmap should be relative copy number values or not. The default value is `0`
 
 
-####PlotDendrograms
+#### PlotDendrograms
 
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1`
 
@@ -281,7 +281,7 @@ where:
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 
-####PlotAll
+#### PlotAll
 If you want to plot all available graphical representations (a quantitative stacked histogram, a heatmap and a dendrogram):<br>
 `python aCNViewer.py -f aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_TEST_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_TEST_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_TEST_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1 --plotAll 1`
 
@@ -299,9 +299,9 @@ where:
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
 
 
-###OutputFiles
+### OutputFiles
 
-####ASCAT
+#### ASCAT
 
 When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CNV profiles. These results are saved into a folder named `ASCAT` in the user selected target directory with the following files:
 * `*.segments.txt`: file containing ASCAT predicted CNV segments
@@ -309,7 +309,7 @@ When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CN
 * `*.png`: the various ASCAT graphical outputs
 
 
-####HistogramOutputs
+#### HistogramOutputs
 
 When generating histograms, 3 text files with the suffix `_samples.txt` will be created along:
 * one with all the genomic segments

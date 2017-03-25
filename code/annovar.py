@@ -356,9 +356,9 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
             if isinstance(paramList, types.StringType):
                 fileName = paramList
                 continue
-            cmd, fileName, outputFile, onSubmitAction, walltime, queue,
-            machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,
-            jobName, expectedFormat, otherExpectedFormatList, errorFile,
+            cmd, fileName, outputFile, onSubmitAction, walltime, queue,\
+            machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,\
+            jobName, expectedFormat, otherExpectedFormatList, errorFile,\
             outFile, jobId, dumpFileName, email, scriptName, optionList = \
                 paramList
             # if not jobId:

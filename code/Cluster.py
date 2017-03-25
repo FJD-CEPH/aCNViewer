@@ -113,6 +113,8 @@ class ThreadManager:
         self.__adjustProcNb = adjustProcNb
         self.__canProcBeAdjusted = False
         self.__maxProcNb = _detect_ncpus()
+        #print 'maxThreadNb = %s' % maxThreadNb
+        #sys.exit(0)
 
     def __del__(self):
         print 'Waiting for all jobs to complete before exiting'
