@@ -37,8 +37,14 @@ class R:
         # cmd = '%sRscript --vanilla -e "%s"' % (self.__binDir, rStr)
         # fh = os.popen(cmd)
         fh = self._execString(rStr, True)
-        content = fh.read()
+        content = fh.read().strip()
         fh.close()
+        if not content:
+            tmpScriptName = 'tmp.R'
+            fh = self._execString(rStr, True, tmpScriptName)
+            content = fh.read().strip()
+            fh.close()
+            os.system('rm %s' % tmpScriptName)
         result = content.split()[1]
         if result not in ['TRUE', 'FALSE']:
             raise NotImplementedError(
@@ -106,8 +112,16 @@ class R:
                 rFileName)
         return cmd
 
-    def _execString(self, rStr, returnStdout=False):
-        cmd = '%sRscript --vanilla -e "%s"' % (self.__binDir, rStr)
+    def _execString(self, rStr, returnStdout=False, scriptName=None):
+        if scriptName:
+            outFh = open(scriptName, 'w')
+            outFh.write(rStr)
+            outFh.close()
+        cmd = '%sRscript --vanilla ' % self.__binDir
+        if scriptName:
+            cmd += scriptName
+        else:
+            cmd += '-e "%s"' % rStr
         if returnStdout:
             return os.popen(cmd)
         Utilities.mySystem(cmd)

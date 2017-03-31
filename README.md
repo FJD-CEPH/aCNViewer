@@ -7,20 +7,15 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 - [Dependencies](#dependencies)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
-  + Quick start (quantitative stacked histograms):
-    * [Affymetrix example](#affymetrix)
-    * [ASCAT CNVs example](#testaffy2)
-    * [Sequenza CNVs example](#testsequenzacnvs)
-    * [Other plots](#other-plots)
-  + [Affymetrix](#affymetrix)
-  + [Illumina](#illumina)
-  + [NGS](#ngs)
-  + [Processing CNV files](#processing-cnv-file)
-  + Other plots:
-    * [Plot heatmaps](#plotheatmaps)
-    * [Plot dendrograms](#plotdendrograms)
-    * [plot all](#plotall)
-  + [Output files](#outputfiles)
+    * [Processing SNP array data]:
+      + [Affymetrix] (#affymetrix)
+      + [Illumina] (#illumina)
+    
+    * [Processing NGS data] (#ngs)
+  
+    * [Processing CNV file] (#processing-cnv-file)
+
+- [Output files](#outputfiles)
   
 
 ***
@@ -165,6 +160,9 @@ Once Sequenza CNVs have been generated sucessfully, you can proceed to the [grap
 
 ### Processing CNV file
 
+At the moment, ASCAT segment file and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below] (#OtherCNVformats).
+
+
 Both examples below require to download [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz).
 
 #### TestAffy2
@@ -216,6 +214,20 @@ where:
 * <a href="#windowSize">`WINDOW_SIZE`</a>
 * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
 * <a href="#rColorFile">`RCOLOR_FILE`</a>
+
+
+#### OtherCNVformats
+
+CNV results from any software can be processed by aCNViewer if formatted in the ASCAT segment file format i.e. a tab-delimited file with the following columns: 
+* `sample`
+* `chr`
+* `startpos`
+* `endpos`
+* `nMajor`
+* `nMinor`
+
+If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` should take the value of `v / 2`.
+
 
 
 ### Other plots
@@ -306,7 +318,18 @@ where:
 When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CNV profiles. These results are saved into a folder named `ASCAT` in the user selected target directory with the following files:
 * `*.segments.txt`: file containing ASCAT predicted CNV segments
 * `*.ascatInfo.txt`: file containing the following ASCAT values for all the samples: `aberrantcellfraction`, `goodnessOfFit`, `psi` and `ploidy`
-* `*.png`: the various ASCAT graphical outputs
+* `*.png`: the various ASCAT graphical outputs:
+
+| File | Description |
+| --- | --- |
+| .ASCATprofile.png | genome-wide representation of ASCAT CNVs |
+| .ASPCF.png | results of segmentation using Allele-Specific Piecewise Constant Fitting |
+| .rawprofile.png | genome-wide representation of raw ASCAT CNVs |
+| .sunrise.png | sunrise plot showing the optimal solution of tumor ploidy and percentage of aberrant tumor |
+| .tumour.png | representation of LogR and BAF values |
+| tumorSep*.png	 |  |
+| .ascatInfo.txt | ASCAT values of aberrantcellfraction, goodnessOfFit, psi and ploidy for all samples |
+| .segments.txt | list of all CNVs with the copy number for each allele |
 
 
 #### HistogramOutputs
@@ -323,3 +346,8 @@ Each file is in the same format with the following columns:
 * `segmentLength`
 * `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, `start`, `start + segmentLength`)
 * `samples`: the list of the samples falling in the above category
+
+
+#### Dendrograms and heatmaps
+
+2 folders (`relCopyNb` and `rawCopyNb`) will be created and will respectively contain graphs generated from relative copy number values and raw copy number values.

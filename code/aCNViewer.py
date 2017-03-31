@@ -1623,7 +1623,7 @@ class aCNViewer:
 
     def __init__(self, windowSize, percent, binDir=None, useShape=False,
                  sampleFile=None, sampleAliasFile=None, groupColumnName=None,
-                 rLibDir=None, rColorFile=None):
+                 rLibDir=None, rColorFile=None, nbPermutations=None):
         self.__windowSize = windowSize
         self.__percent = percent
         self.__binDir = binDir
@@ -1646,6 +1646,7 @@ class aCNViewer:
         if rLibDir:
             rLibDir = os.path.abspath(rLibDir)
         self.__rLibDir = rLibDir
+        self.__nbPermutations = nbPermutations
         self.__setColorDictFromFile(rColorFile)
 
     def __isStrHtmlHexadecimalColor(self, colorStr):
@@ -2583,11 +2584,55 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
             # outFh2.write([previousEnd + 1, start-1, 0])
             sampleLohFh.write(
                 [start, end, chrName, -percent, ','.join(sampleLohList)])
-
+            
+    def __runStacOnFile(self, stacInputFile):
+        cmd = 'java -jar %s %s %d %d' % (os.path.join(self.__binDir, 'STAC', 'STAC_commandline.jar'), stacInputFile, self.__nbPermutations, self.__windowSize)
+        Utilities.mySystem(cmd)
+            
+    def __runStac(self, stacDict, targetDir, chrSizeDict, centromereDict):
+        for chrKey, currentStacDict in stacDict.iteritems():
+            pFileName, qFileName = self.__createStacInputFile(chrKey, currentStacDict, targetDir, chrSizeDict,
+                                                              centromereDict)
+            self.__runStacOnFile(pFileName)
+            self.__runStacOnFile(qFileName)
+            break
+            
+    def __createStacSummaryFile(self):
+        return
+            
+    def __createStacInputFile(self, chrKey, currentStacDict, targetDir, chrSizeDict,
+                              centromereDict):
+        chrName, sign = chrKey
+        centroStart, centroEnd = centromereDict[chrName]
+        chrSize = chrSizeDict[chrName]
+        pFileName = os.path.join('stac_%sp%s.txt' % (chrName, sign))
+        outFhP = CsvFileWriter(pFileName)
+        outFhP.write('1-%d' % centroStart)
+        qFileName = os.path.join('stac_%sq%s.txt' % (chrName, sign))
+        outFhQ = CsvFileWriter(qFileName)
+        outFhQ.write('%d-%d' % (centroEnd, chrSize))
+        for sampleName, posList in currentStacDict.iteritems():
+            pList = []
+            qList = []
+            for start, end in posList:
+                if end < centroStart:
+                    pList.append('%d-%d' % (start, end))
+                elif start >= centroEnd:
+                    qList.append('%d-%d' % (start, end))
+                else:
+                    print 'Pos (%s, %d, %d) overlaps centromere pos (%d, %d)' % (chrName, start, end, centroStart, centroEnd)
+                    raise NotImplementedError
+            if pList:
+                outFhP.write([sampleName, ';'.join(pList)])
+            if qList:
+                outFhQ.write([sampleName, ';'.join(qList)])
+        return pFileName, qFileName
+    
     def __createHistDataFileAndGetMaxValue(self, dataList, targetDir,
                                            ploidyDict, keyword,
                                            lohDataDict=None,
-                                           lohDataDict2=None):
+                                           lohDataDict2=None, chrSizeDict=None,
+                                           centromereDict=None):
         baseName = '.'.join(os.path.basename(self.__ascatFile).split('.')[:-1])
         fileName = os.path.join(targetDir, '%s_%s_hist_%s.txt' %
                                 (baseName, keyword, self.__suffix))
@@ -2615,22 +2660,40 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         dataList0 = dataList[0][-1]
         lohPointList = []
         previousEnd = previousChrName = None
+        if chrSizeDict:
+            stacDict = {}
         for i, (chrPos, currentPloidy) in enumerate(dataList0):
-            ploidyList = []
-            countDict = defaultdict(list)
-            countDict2 = defaultdict(int)
-            nbVal = nbLoh = 0
-            for sampleName, currentDataList in dataList:
-                currentPloidy = currentDataList[i][1]
-                defaultPloidy = ploidyDict[sampleName.split('_')[0]]
-                currentPloidy -= defaultPloidy
-                ploidyKey = self.__getPloidyKeyFromPloidy(currentPloidy)
-                nbVal += 1
-                countDict[ploidyKey].append(sampleName)
             chrName, pos = chrPos.split(':')
             start, end = pos.split('-')
             start = int(start)
             end = int(end)
+            ploidyList = []
+            countDict = defaultdict(list)
+            countDict2 = defaultdict(int)
+            nbVal = nbLoh = 0
+            if chrSizeDict and not stacDict.has_key((chrName, '+')):
+                stacDict[(chrName, '+')] = defaultdict(list)
+            if chrSizeDict and not stacDict.has_key((chrName, '-')):
+                stacDict[(chrName, '-')] = defaultdict(list)
+            for sampleName, currentDataList in dataList:
+                currentPloidy = currentDataList[i][1]
+                defaultPloidy = ploidyDict[sampleName.split('_')[0]]
+                currentPloidy -= defaultPloidy
+                if chrSizeDict:
+                    key = None
+                    if currentPloidy > 0:
+                        key = '+'
+                    elif currentPloidy < 0:
+                        key = '-'
+                    if key:
+                        posList = stacDict[(chrName, key)][sampleName]
+                        if posList and posList[-1][-1] == start - 1:
+                            posList[-1] = posList[-1][0], end
+                        else:
+                            stacDict[(chrName, key)][sampleName].append((start, end))
+                ploidyKey = self.__getPloidyKeyFromPloidy(currentPloidy)
+                nbVal += 1
+                countDict[ploidyKey].append(sampleName)
             if lohDataDict:
                 if previousChrName and chrName != previousChrName:
                     previousEnd = None
@@ -2672,6 +2735,8 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                     [i, chrName, histStart, length, -value,
                      ','.join(countDict[i])])
             maxValue = max(maxValue, currentValue1, currentValue2)
+        #if chrSizeDict:
+            #self.__runStac(stacDict, targetDir, chrSizeDict, centromereDict)
         return fileName, maxValue, lohFileName, lohFileName2
 
     def __createReorderedPhenotypeFile(self, fileName, outFileName, colorDict):
@@ -2832,7 +2897,7 @@ dev.off()
                                 lohMatrixDict, keyword='',
                                 getMaxValueOnly=False, maxValueToUse=None,
                                 centromereDict=None, lohMatrixDict2=None,
-                                lohToPlot=None):
+                                lohToPlot=None, chrSizeDict=None):
         print 'Merged hist for "%s": %d samples: %s' % \
               (keyword, len(matrixDict), matrixDict.keys())
         dataList = []
@@ -2848,6 +2913,7 @@ dev.off()
             dataList.append((sampleName, currentDataList))
             if not dataSize:
                 dataSize = len(currentDataList)
+            print sampleName, dataSize, len(currentDataList)
             if dataSize != len(currentDataList):
                 raise NotImplementedError
             if not lohMatrixDict:
@@ -2866,7 +2932,7 @@ dev.off()
         histFileName, maxValue, lohHistFileName, lohHistFileName2 = \
             self.__createHistDataFileAndGetMaxValue(
                 dataList, targetDir, ploidyDict, 'merged%s' % keyword,
-                lohDataDict, lohDataDict2)
+                lohDataDict, lohDataDict2, chrSizeDict, centromereDict)
         if getMaxValueOnly:
             return maxValue
         if maxValueToUse:
@@ -3155,6 +3221,7 @@ for (pos in colnames(a)){
         whiteColor = '"#FFFFFF"'
         idx = colorList.index(whiteColor)
         colorList = colorList[idx+1:]
+        print valueSet
         colorList2 = self.__getRedBlueColorListValueList(abs(min(negativeValueList)))
         idx = colorList2.index(whiteColor)
         colorList = colorList2[:idx+1] + colorList
@@ -3180,18 +3247,19 @@ for (pos in colnames(a)){
                          cexCol, margins, labRowStr, labColStr, groupDict,
                          hclust, groupLegendPos, chrLegendPos,
                          useRelativeCopyNbForClustering,
-                         keepGenomicPosForHistogram):
+                         keepGenomicPosForHistogram, targetDir=None):
         # groupStr, colColorStr, legendStr =
         # self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(groupDict)
         groupStr = self.__getColorRstr(matrixFile, hclust,
                                        useRelativeCopyNbForClustering,
-                                       keepGenomicPosForHistogram)
+                                       keepGenomicPosForHistogram, targetDir)
         rowSideStr, rowLegendStr = self.__getRowSideColorsStr(chrLegendPos)
         rowColorStr = ', RowSideColors = rowColorList'
         # labRow = %(labRow)s, labCol = %(labCol)s
         groupLegendPosStr = self.__getCoordinateFromStr(
             groupLegendPos, 'topright')
         valueSet = self.__getCopyNbValueSetFromFile(matrixFile)
+        print 'MatrixFile = [%s]' % matrixFile
         if useRelativeCopyNbForClustering:
             colorList = self.__getColorListForHeatmapGainsAndLosses(valueSet)
         else:
@@ -3494,7 +3562,7 @@ dev.off()
 
     def __getColorRstr(self, matrixFile, hclust,
                        useRelativeCopyNbForClustering,
-                       keepGenomicPosForHistogram):
+                       keepGenomicPosForHistogram, targetDir=None):
         groupDict, groupListDict = self.__getGroupDictDictAndGroupListDict()
         rStr = ''
         for i, colName in enumerate(groupDict.keys()):
@@ -3502,6 +3570,13 @@ dev.off()
                 legendColorList = \
                 self.__getGroupStrColSideColorsStrAndLegendStrForHeatmap(
                     groupDict[colName], colName, i, groupListDict[colName])
+            outFileName = FileNameGetter(matrixFile).get(
+                                '_heatmap_%s_%s_%d%d.pdf' % (colName.replace(
+                                    ' ', '_').replace('/', '-'), hclust,
+                             int(useRelativeCopyNbForClustering),
+                             int(keepGenomicPosForHistogram)))
+            if targetDir:
+                outFileName = os.path.join(targetDir, os.path.basename(outFileName))
             groupStr += '\ncolColorList%(i)d <- c()\n\
 colColorList%(i)d$colColorList <- colColorList\ncolColorList%(i)d$outFileName\
  <- "%(outFileName)s"\ncolColorList%(i)d$legendList <- %(legendList)s\n\
@@ -3510,11 +3585,7 @@ $title <- "%(title)s"\n' % {'i': i,
                             'legendList': R()._getStrFromList(legendList),
                             'legendColorList': R()._getStrFromList(
                                 legendColorList),
-                            'outFileName': FileNameGetter(matrixFile).get(
-                                '_heatmap_%s_%s_%d%d.pdf' % (colName.replace(
-                                    ' ', '_').replace('/', '-'), hclust,
-                             int(useRelativeCopyNbForClustering),
-                             int(keepGenomicPosForHistogram))),
+                            'outFileName': outFileName,
                             'title': colName}
             rStr += groupStr
         rStr += '\nallColColorList <- list(%s)\n' % (
@@ -3572,7 +3643,7 @@ $title <- "%(title)s"\n' % {'i': i,
                        cexRow=None, cexCol=None, margins=None, labRow=None,
                        labCol=None, groupDict=None, groupLegendPos=None,
                        chrLegendPos=None, useRelativeCopyNbForClustering=False,
-                       keepGenomicPosForHistogram=False):
+                       keepGenomicPosForHistogram=False, targetDir=None):
         #self.__installHeatmapPackages()
         matrixFile = os.path.abspath(matrixFile)
         if not height:
@@ -3612,7 +3683,7 @@ $title <- "%(title)s"\n' % {'i': i,
                               cexCol, margins, labRowStr, labColStr, groupDict,
                               hclust, groupLegendPos, chrLegendPos,
                               useRelativeCopyNbForClustering,
-                              keepGenomicPosForHistogram)
+                              keepGenomicPosForHistogram, targetDir)
 
     def __getSampleShapeAndColorFunctionStr(self, groupDict, groupList):
         colorFuncStr = shapeFuncStr = ''
@@ -3648,7 +3719,7 @@ $title <- "%(title)s"\n' % {'i': i,
 
     def _createDendrogram(self, matrixFile, groupDict, colorDict, shapeDict,
                           ploidyFile2, shapeDict2, coeff, keyword=None,
-                          defaultEmptyValue=None, hclust=None):
+                          defaultEmptyValue=None, hclust=None, targetDir=None):
         groupDict, groupListDict = self.__getGroupDictDictAndGroupListDict()
         matrixFile = os.path.abspath(matrixFile)
         if not R(self.__binDir,
@@ -3758,6 +3829,8 @@ m <- b
                     groupDict[colName], groupList)
             imgFile = FileNameGetter(matrixFile).get(
                 '_dendro_%s.png' % colName.replace(' ', '_'))
+            if targetDir:
+                imgFile = os.path.join(targetDir, os.path.basename(imgFile))
             if keyword:
                 imgFile = FileNameGetter(imgFile).get('_%s.png' % keyword)
             if self.__sampleToGroupDict:
@@ -3875,13 +3948,19 @@ for (obj in allFunctionList){
 
     def __createMergedHistograms(self, matrixDict, ploidyDict, targetDir,
                                  group2Dict, lohMatrixDict, groupDict,
-                                 centromereDict, lohMatrixDict2, lohToPlot):
+                                 centromereDict, lohMatrixDict2, lohToPlot,
+                                 plotSubgroups=False, chrSizeDict=None):
+        Utilities.saveCache((matrixDict, ploidyDict, targetDir,
+                                 group2Dict, lohMatrixDict, groupDict,
+                                 centromereDict, lohMatrixDict2, lohToPlot,
+                                 plotSubgroups, chrSizeDict), '%s.pyDump' % Utilities.getTimeString())
+        #sys.exit(0)
         cluster = ThreadManager(_getNbAvailableCpus())
         matrixDict = self.__getSubsetMatrixForSamples(
             matrixDict, [sampleName for sampleName in matrixDict if
                          sampleName[:2] != 'CS'])
         paramList = [(None, '')]
-        if group2Dict:
+        if group2Dict and plotSubgroups:
             paramList += [(group2Dict.getall((3, 'PET')) +
                            group2Dict.getall((3, 'PET assimilated')), '_PET'),
                           (group2Dict.getall((3, 'SIET')), '_SIET'),
@@ -3901,7 +3980,7 @@ for (obj in allFunctionList){
                           (group2Dict.getall((4, 'G1 SIET')), '_SIET-G1'),
                           (group2Dict.getall((4, 'G2 SIET')), '_SIET-G2')
                           ]
-        else:
+        elif plotSubgroups:
             for groupName in groupDict:
                 sampleList = groupDict.getall(groupName)
                 paramList.append((sampleList, '_%s' % groupName))
@@ -3927,7 +4006,8 @@ for (obj in allFunctionList){
                     lohMatrixDict2, sampleList)
             cluster.submit(self.__createMergedHistogram, subMatrix, ploidyDict,
                            targetDir, subLohMatrix, keyword, False, 95,
-                           centromereDict, subLohMatrix2, lohToPlot)
+                           centromereDict, subLohMatrix2, lohToPlot,
+                           chrSizeDict)
         '''
         # all samples
         cluster.submit(self.__createMergedHistogram, matrixDict, ploidyDict,
@@ -4096,6 +4176,9 @@ for (obj in allFunctionList){
                         'mv %s %s' % (os.path.join(aptOutDir, '*.segments.txt'), currentTargetDir),
                         'mv %s %s' % (os.path.join(aptOutDir, '*.ascatInfo.txt'), currentTargetDir)]:
                 Utilities.mySystem(cmd)
+        for fileName in glob.glob(os.path.join(tmpDir, '*')):
+            if os.path.isdir(fileName):
+                Utilities.mySystem('mv %s %s' % (fileName, targetDir))
         for cmd in ['mv %s %s' % (os.path.join(tmpDir, '*.R'), targetDir),
                     'rm -rf %s' % tmpDir]:
             Utilities.mySystem(cmd)
@@ -4110,7 +4193,7 @@ for (obj in allFunctionList){
                 labRow=None, labCol=None, groupLegendPos=None,
                 chrLegendPos=None, fileType=None, keepCentromereData=False,
                 lohToPlot=None, useRelativeCopyNbForClustering = False,
-                keepGenomicPosForHistogram = False):
+                keepGenomicPosForHistogram = False, plotSubgroups=False):
         originalTargetDir = targetDir
         if targetDir:
             targetDir = os.path.join(targetDir, 'tmp')
@@ -4222,26 +4305,48 @@ Sequenza results but found "%s"' % ascatFile)
                                               targetDir, group2Dict,
                                               lohMatrixDict, groupDict,
                                               currentCentromereDict,
-                                              lohMatrixDict2, lohToPlot)
+                                              lohMatrixDict2, lohToPlot,
+                                              plotSubgroups, chrSizeDict)
             if _isCustom and plotAll or not merge:
                 self.__createHistogramBySample(
                     matrixDict, ploidyDict, targetDir, lohMatrixDict,
                     currentCentromereDict)
+        if not self.__sampleFile:
+            self.__cleanDir(targetDir)
+            return
         if plotAll or dendrogram or heatmap:
             matrixFile = self.__createMatrixFile(
                 matrixDict, targetDir, None, ploidyFile, useRelativeCopyNbForClustering,
                 ploidyDict)
+            if plotAll:
+                matrixFile2 = self.__createMatrixFile(
+                matrixDict, targetDir, '2', ploidyFile, not useRelativeCopyNbForClustering,
+                ploidyDict)
+                keyword = 'rawCopyNb'
+                keyword2 = 'relCopyNb'
+                if useRelativeCopyNbForClustering:
+                    keyword = 'relCopyNb'
+                    keyword2 = 'rawCopyNb'
+                currentTargetDir = os.path.join(os.path.abspath(targetDir), keyword)
+                Utilities.mySystem('mkdir -p %s' % currentTargetDir)
+                currentTargetDir2 = os.path.join(os.path.abspath(targetDir), keyword2)
+                Utilities.mySystem('mkdir -p %s' % currentTargetDir2)
         if plotAll or dendrogram:
             cluster = ThreadManager(_getNbAvailableCpus())
             if not self.__groupColumnName and _isCustom:
                 colorDict['SIET'] = 'black'
             ploidyFile2 = ploidyFile + '_reordered.txt'
             ploidyFile3 = ploidyFile2 + '2'
-            Utilities()._runFunc(self.__createReorderedPhenotypeFile, [
+            if self.__groupColumnName:
+                Utilities()._runFunc(self.__createReorderedPhenotypeFile, [
                 ploidyFile, ploidyFile2, colorDict], ploidyFile2)
             cluster.submit(self._createDendrogram, matrixFile, groupDict,
                            colorDict, shapeDict, ploidyFile3, shapeDict2,
-                           0.01269454, keyword, None, hclust)
+                           0.01269454, keyword, None, hclust, currentTargetDir)
+            if plotAll:
+                cluster.submit(self._createDendrogram, matrixFile2, groupDict,
+                           colorDict, shapeDict, ploidyFile3, shapeDict2,
+                           0.01269454, keyword, None, hclust, currentTargetDir2)
             if not self.__groupColumnName and _isCustom:
                 coeff = 0.02296309
                 currentMatrixDict = self.__getSubsetMatrixForSamples(
@@ -4280,8 +4385,14 @@ Sequenza results but found "%s"' % ascatFile)
                                 cexCol, margins, labRow, labCol, groupDict,
                                 groupLegendPos, chrLegendPos,
                                 useRelativeCopyNbForClustering,
-                                keepGenomicPosForHistogram)
-        #self.__cleanDir(targetDir)
+                                keepGenomicPosForHistogram, currentTargetDir)
+            if plotAll:
+                self._createHeatmap(matrixFile2, hclust, height, width, cexRow,
+                                cexCol, margins, labRow, labCol, groupDict,
+                                groupLegendPos, chrLegendPos,
+                                not useRelativeCopyNbForClustering,
+                                keepGenomicPosForHistogram, currentTargetDir2)
+        self.__cleanDir(targetDir)
 
 
 class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -4394,7 +4505,8 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,
                   options.sampleAliasFile, options.groupColumnName,
-                  options.rLibDir, options.rColorFile).process(
+                  options.rLibDir, options.rColorFile, options.nbPermutations).\
+        process(
                       options.fileName, options.chrFile, options.targetDir,
                       options.ploidyFile, options.histogram, options.merge,
                       options.dendrogram, options.plotAll,
@@ -4539,7 +4651,10 @@ histograms'),
                                             CommandParameterType.BOOLEAN),
                            
                            CommandParameter('keepGenomicPosForHistogram',
-                                            CommandParameterType.BOOLEAN),
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue=False,
+                                            helpString='Heatmap parameter: \
+if True only samples will be clustered and not genomic positions'),
 
                            CommandParameter('l', 'libDir', 'string',
                                             helpString='Affymetrix library \
@@ -4589,6 +4704,9 @@ indicating normal bam file'),
                                             helpString='Sequenza parameter \
 indicating the number of threads to use when generating seqz file by \
 chromosome'),
+                           
+                           CommandParameter('nbPermutations', 'int',
+                                            defaultValue=1000),
 
                            CommandParameter('o', 'outFileName', 'string'),
 
@@ -4622,9 +4740,14 @@ tab-delimited file with at least 2 columns: "sample" and "ploidy"'),
 
                            CommandParameter('plotAll',
                                             CommandParameterType.BOOLEAN,
-                                            defaultValue=False,
+                                            defaultValue=True,
                                             helpString='If True, plot \
 histograms, heatmaps and dendrograms'),
+                           
+                           CommandParameter('plotSubgroups',
+                                            CommandParameterType.BOOLEAN,
+                                            helpString='If True, plot \
+one histogram for all samples with the same phenotypical value'),
 
                            CommandParameter('probeFile', 'string'),
 
@@ -4663,6 +4786,7 @@ indicating tumor bam file'),
                            
                            CommandParameter('useRelativeCopyNbForClustering',
                                             CommandParameterType.BOOLEAN,
+                                            defaultValue=False,
                                             helpString='Tells whether '),
                            
                            
