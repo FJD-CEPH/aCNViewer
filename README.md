@@ -8,12 +8,12 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 - [Overview](#overview)
 - [Tutorial](#tutorial):
     * [Processing SNP array data]:
-      + [Affymetrix] (#affymetrix)
-      + [Illumina] (#illumina)
+      + [Affymetrix](#affymetrix)
+      + [Illumina](#illumina)
     
-    * [Processing NGS data] (#ngs)
+    * [Processing NGS data](#ngs)
   
-    * [Processing CNV file] (#processing-cnv-file)
+    * [Processing CNV file](#processing-cnv-file)
 
 - [Output files](#outputfiles)
   
