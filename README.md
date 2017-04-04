@@ -7,7 +7,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 - [Dependencies](#dependencies)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
-    * [Processing SNP array data]:
+    * Processing SNP array data:
       + [Affymetrix](#affymetrix)
       + [Illumina](#illumina)
     

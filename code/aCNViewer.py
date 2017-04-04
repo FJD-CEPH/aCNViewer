@@ -4792,7 +4792,7 @@ indicating tumor bam file'),
                            
                            CommandParameter('u', 'useShape',
                                             CommandParameterType.BOOLEAN,
-                                            defaultValue=False,
+                                            defaultValue=True,
                                             helpString='When "dendrogram" or \
 "plotAll" is True, replace sample labels with colored shapes representing \
 each sample group'),
