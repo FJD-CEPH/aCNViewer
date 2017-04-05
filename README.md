@@ -4,7 +4,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 **Contact:** Victor Renault / Alexandre How-Kit (aCNViewer@cephb.fr)
 
 ## Table of contents
-- [Dependencies](#dependencies)
+- [Installation](#installation)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
     * Processing SNP array data:
@@ -20,7 +20,24 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ***
 
-## Dependencies:
+## Installation
+
+### Docker installation
+
+The easiest way to install aCNViewer is to install the Docker application (supports multi-threading but not computer clusters useful for processing NGS bams):
+`docker pull fjdceph/acnviewer`
+
+
+
+### Installation from source
+
+aCNViewer can also be installed from its source by:
+1. downloading aCNViewer's data (includes test data sets and some of the third-party softwares listed in the [dependencies](#dependencies) section [APT and tQN])
+1. installing the dependencies listed [below](#dependencies).
+1. downloading the github source code from this page
+
+
+#### Dependencies:
 
 * APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
 
@@ -28,6 +45,8 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
   + [ASCAT](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) (will be automatically installed if not already installed) if you are analyzing raw SNP array data
   + [Sequenza](https://cran.r-project.org/web/packages/sequenza/index.html) if you are analyzing paired (tumor / normal) bams
   + [plotrix](https://cran.r-project.org/web/packages/plotrix/index.html) for plotting dendrograms (will be automatically installed if not already installed)
+  + [gplots](https://cran.r-project.org/web/packages/gplots/index.html)
+  + [RColorBrewer](https://cran.r-project.org/web/packages/RColorBrewer/index.html)
 
 * [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into `BIN_DIR`) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
@@ -44,18 +63,18 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 ## Tutorial
 
-### Processing raw data
+### Requirements:
+
+Let's call `aCNViewer_TEST_DATA` the location where the test data set below has been uncompressed into and `BIN_DIR` the folder containing all third-party softwares. Download:
+
+* the test data set [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz)
+
+* [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it into `BIN_DIR` if you want to analyze raw Affymetrix SNP data.
+
+
+### Processing SNP array data
 
 #### Affymetrix
-
-##### Requirements:
-
-* Test data set [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz)
-
-* Download [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it into `BIN_DIR`
-
-Let's respectively call `aCNViewer_TEST_DATA` and `BIN_DIR` the location where respectively [aCNViewer_TEST_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz) and [APT archive]((http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) have been uncompressed into.
-
 
 ##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
 

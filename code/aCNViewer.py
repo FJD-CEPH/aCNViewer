@@ -3219,7 +3219,13 @@ for (pos in colnames(a)){
         negativeValueList = [int(value) for value in valueSet if int(value) < 0]
         colorList = self.__getRedBlueColorListValueList(max(positiveValueList))
         whiteColor = '"#FFFFFF"'
-        idx = colorList.index(whiteColor)
+        try:
+            idx = colorList.index(whiteColor)
+        except:
+            print 'white color not found in %s' % colorList
+            print 'positiveValueList = %s' % positiveValueList
+            print 'negativeValueList = %s' % negativeValueList
+            raise NotImplementedError
         colorList = colorList[idx+1:]
         print valueSet
         colorList2 = self.__getRedBlueColorListValueList(abs(min(negativeValueList)))
@@ -4166,7 +4172,8 @@ for (obj in allFunctionList){
         targetDir = os.path.dirname(tmpDir)
         for cmd in ['mv %s %s' % (os.path.join(tmpDir, '*.png'), targetDir),
                     'mv %s %s' % (os.path.join(tmpDir, '*.pdf'), targetDir),
-                    'mv %s %s' % (os.path.join(tmpDir, '*_samples.txt'), targetDir)]:
+                    'mv %s %s' % (os.path.join(tmpDir, '*_samples.txt'), targetDir),
+                    'mv %s %s' % (os.path.join(tmpDir, 'matrix*.txt'), targetDir)]:
             os.system(cmd + ' 2> /dev/null')
         aptOutDir = os.path.join(tmpDir, 'apt_out')
         if os.path.isdir(aptOutDir):
@@ -4195,6 +4202,7 @@ for (obj in allFunctionList){
                 lohToPlot=None, useRelativeCopyNbForClustering = False,
                 keepGenomicPosForHistogram = False, plotSubgroups=False):
         originalTargetDir = targetDir
+        keywordDict = {True: 'relCopyNb', False: 'rawCopyNb'}
         if targetDir:
             targetDir = os.path.join(targetDir, 'tmp')
             Utilities.mySystem('mkdir -p %s' % targetDir)
@@ -4316,11 +4324,11 @@ Sequenza results but found "%s"' % ascatFile)
             return
         if plotAll or dendrogram or heatmap:
             matrixFile = self.__createMatrixFile(
-                matrixDict, targetDir, None, ploidyFile, useRelativeCopyNbForClustering,
+                matrixDict, targetDir, keywordDict[useRelativeCopyNbForClustering] + '_', ploidyFile, useRelativeCopyNbForClustering,
                 ploidyDict)
             if plotAll:
                 matrixFile2 = self.__createMatrixFile(
-                matrixDict, targetDir, '2', ploidyFile, not useRelativeCopyNbForClustering,
+                matrixDict, targetDir, keywordDict[not useRelativeCopyNbForClustering] + '_', ploidyFile, not useRelativeCopyNbForClustering,
                 ploidyDict)
                 keyword = 'rawCopyNb'
                 keyword2 = 'relCopyNb'
