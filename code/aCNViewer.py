@@ -4173,7 +4173,7 @@ for (obj in allFunctionList){
         for cmd in ['mv %s %s' % (os.path.join(tmpDir, '*.png'), targetDir),
                     'mv %s %s' % (os.path.join(tmpDir, '*.pdf'), targetDir),
                     'mv %s %s' % (os.path.join(tmpDir, '*_samples.txt'), targetDir),
-                    'mv %s %s' % (os.path.join(tmpDir, 'matrix*.txt'), targetDir)]:
+                    'mv %s %s' % (os.path.join(tmpDir, '*.txt'), targetDir)]:
             os.system(cmd + ' 2> /dev/null')
         aptOutDir = os.path.join(tmpDir, 'apt_out')
         if os.path.isdir(aptOutDir):
