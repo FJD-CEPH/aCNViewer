@@ -1208,18 +1208,26 @@ does not contain "%s"' % (header, tQNkeyword))
         return glob.glob(os.path.join(dirName, '*.cel')) + \
             glob.glob(os.path.join(dirName, '*.cel.gz'))
 
+    def _installAscatAndSequenza(self):
+        rDir = self.__binDir
+        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
+                                                             'R')):
+            rDir = None
+        self.__checkAndInstallRpackagesIfNecessary(rDir)
+        RunSequenza(self.__binDir, self.__rLibDir)._installSequenzaIfNecessary()
+    
     def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile,
                 platform, libDir=None, gw6Dir=None, snpFile=None,
                 normalize=True, sampleList=None, targetDir=None):
         if ',' in lrrBafFile:
             lrrBafFile = lrrBafFile.split(',')
-        if os.path.isfile(lrrBafFile):
+        if isinstance(lrrBafFile, types.StringType) and os.path.isfile(lrrBafFile):
             lrrBafFile = [lrrBafFile]
         if isinstance(lrrBafFile, types.ListType):
             outFileName = os.path.join(os.path.dirname(
                 lrrBafFile[0]), 'lrrBaf_%d.txt' % int(normalize))
             Utilities()._runFunc(self._createMergedIlluminaFinalReports, [
-                lrrBafFile, snpFile, outFileName, None, sampleList, normalize],
+                lrrBafFile, snpFile, outFileName, targetDir, sampleList, normalize],
                 outFileName)
             lrrBafFile = outFileName
             print 'lrrBafFile = %s' % lrrBafFile
@@ -1236,7 +1244,7 @@ does not contain "%s"' % (header, tQNkeyword))
                 outFileName = os.path.join(
                     lrrBafFile, 'lrrBaf_%d.txt' % int(normalize))
                 Utilities()._runFunc(self._createMergedIlluminaFinalReports, [
-                    fileList, snpFile, outFileName, None, sampleList,
+                    fileList, snpFile, outFileName, targetDir, sampleList,
                     normalize], outFileName)
                 lrrBafFile = outFileName
             print 'lrrBafFile = %s' % lrrBafFile
@@ -1384,7 +1392,7 @@ class RunSequenza:
                         splittedLine[1:3] + [splittedLine[aIdx],
                                              splittedLine[bIdx]])
 
-    def _createAscatFileFromSegmentFiles(self, dirName):
+    def _createAscatFileFromSegmentFiles(self, dirName, targetDir = None):
         outFileList = []
         # in glob.glob(os.path.join(dirName, '*', '*_segments.txt')):
         for fileName in os.popen('find %s -follow -name "*_segments.txt"' %
@@ -1392,10 +1400,14 @@ class RunSequenza:
             fileName = fileName.strip()
             print 'Converting file "%s" into ASCAT format' % fileName
             outFileName = FileNameGetter(fileName).get('_ascat.txt')
+            if targetDir:
+                outFileName = os.path.join(targetDir, os.path.basename(outFileName))
             Utilities()._runFunc(self.__convertSegmentFileIntoAscatFormat,
                                  [fileName, outFileName], outFileName)
             outFileList.append(outFileName)
         outFileName = os.path.join(dirName, 'ascat.txt')
+        if targetDir:
+            outFileName = os.path.join(targetDir, os.path.basename(outFileName))
         outFh = CsvFileWriter(outFileName)
         outFh.write(['sample', 'chr', 'startpos',
                      'endpos', 'nMajor', 'nMinor'])
@@ -1409,7 +1421,7 @@ class RunSequenza:
             os.path.abspath(__file__), dirName)
         cmdList.append((dirName, os.path.join(dirName, 'ascat'), cmd))
 
-    def __installSequenzaIfNecessary(self):
+    def _installSequenzaIfNecessary(self):
         r = R(self.__binDir, libDir=self.__rLibDir)
         if r.isPackageInstalled('sequenza'):
             return
@@ -1623,7 +1635,8 @@ class aCNViewer:
 
     def __init__(self, windowSize, percent, binDir=None, useShape=False,
                  sampleFile=None, sampleAliasFile=None, groupColumnName=None,
-                 rLibDir=None, rColorFile=None, nbPermutations=None):
+                 rLibDir=None, rColorFile=None, nbPermutations=None,
+                 outputFormat=None):
         self.__windowSize = windowSize
         self.__percent = percent
         self.__binDir = binDir
@@ -1648,6 +1661,7 @@ class aCNViewer:
         self.__rLibDir = rLibDir
         self.__nbPermutations = nbPermutations
         self.__setColorDictFromFile(rColorFile)
+        self.__outputFormat = outputFormat
 
     def __isStrHtmlHexadecimalColor(self, colorStr):
         if len(colorStr) != 7 or colorStr[0] != '#':
@@ -2804,7 +2818,7 @@ one of ("LOH", "cn-LOH", "both")' % lohToPlot)
 %s, name = "%s")' % (plotStr, R()._getStrFromList(colorList),
                      R()._getStrFromList(labelList), legendLabel)
             lohStr = 'dataLoh = read.table("%s")\ndataLoh2 = \
-read.table("%s")' % (lohHistFileName, lohHistFileName2)
+read.table("%s")' % (os.path.abspath(lohHistFileName), os.path.abspath(lohHistFileName2))
         # if lohPointList:
             # lohStr = 'lohDataFrame = data.frame(pos=c(%s), )' %
             # (','.join([str(start) for chrName, start, end, percent in
@@ -2872,7 +2886,7 @@ plot(gr)
 dev.off()
 """ % {'lohStr': lohStr, 'centroPosStr': R()._getStrFromList(centroPosList),
             'yMax': maxValue, 'lohGraphStr': lohGraphStr,
-            'histDataFile': histDataFile,
+            'histDataFile': os.path.abspath(histDataFile),
             'filePattern': rFileName.replace('.R', ''),
             'colorStr': R()._getStrFromList(colorStrList)}
         outFh = CsvFileWriter(rFileName)
@@ -3793,7 +3807,7 @@ drawShape <- function (x, shape, color, yMax) {
     }
     else if (shape == "triangle2") {
         polygon(c(x-.2, x+.2, x), c(-1.5 * downCoeff, -1.5 * downCoeff,
-        -4.3 * downCoeff), col=color, border=color)
+        -4.3 * downCoeff), border=color)
     }
     #else if (shape == "triangle2") {
     #    plot(x, y, type = "l", ylim = c(-3, 3), main = "rotatexy",
@@ -4222,8 +4236,12 @@ for (obj in allFunctionList){
                     raise NotImplementedError(
                         'Option "-f" should be a directory when analyzing \
 Sequenza results but found "%s"' % ascatFile)
+                sequenzaTargetDir = targetDir
+                if targetDir:
+                    sequenzaTargetDir = os.path.join(targetDir, 'sequenza2ascat')
+                    Utilities.mySystem('mkdir -p %s' % sequenzaTargetDir)
                 paramList = [RunSequenza(self.__binDir).
-                             _createAscatFileFromSegmentFiles, ascatFile]
+                             _createAscatFileFromSegmentFiles, ascatFile, sequenzaTargetDir]
                 ascatFile = \
                     Utilities.getFunctionResultWithCache(dumpFileName,
                                                          *paramList)
@@ -4474,6 +4492,8 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
             options.percentage, options.fileName2, options.chrFile)
     elif options.progName == 'gc':
         RunSequenza(options.binDir)._createGcFile(options.refFileName)
+    elif options.progName == 'installDependencies':
+        RunAscat(options.binDir, options.rLibDir)._installAscatAndSequenza()
     elif options.progName == 'liftOver':
         RunAscat(options.binDir)._liftOverRawProbeFile(
             options.fileName, options.targetBuild)
@@ -4513,7 +4533,8 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,
                   options.sampleAliasFile, options.groupColumnName,
-                  options.rLibDir, options.rColorFile, options.nbPermutations).\
+                  options.rLibDir, options.rColorFile, options.nbPermutations,
+                  options.outputFormat).\
         process(
                       options.fileName, options.chrFile, options.targetDir,
                       options.ploidyFile, options.histogram, options.merge,
@@ -4671,8 +4692,8 @@ http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays'),
 
                            CommandParameter('labCol',
                                             CommandParameterType.BOOLEAN,
-                                            helpString='If True, show sample \
-labels in heatmaps'),
+                                            helpString='If True (default value), show sample \
+labels in heatmaps', defaultValue = True),
 
                            CommandParameter('labRow',
                                             CommandParameterType.BOOLEAN,
@@ -4718,6 +4739,8 @@ chromosome'),
 
                            CommandParameter('o', 'outFileName', 'string'),
 
+                           CommandParameter('O', 'outputFormat', 'string', defaultValue='png'),
+                           
                            CommandParameter('p', 'percentage', 'float',
                                             helpString='Segment size in \
 percentage of chromosome length used to split chromosomes for CNV matrix'),

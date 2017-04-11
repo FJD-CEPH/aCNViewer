@@ -171,8 +171,6 @@ class CsvFileWriter:
 
     def __init__(self, fileName, fileOption='w', exportInExcel=False,
                  useBuffer=True, otherParamDict=None):
-        #if os.path.basename(fileName) == 'GSE9845_lrr_baf.segments.txt_lohNeutral.txt':
-        #    raise NotImplementedError
         self._fileName = fileName
         self.__isExcel = False
         self.__otherParamDict = otherParamDict
@@ -366,9 +364,9 @@ class FileNameGetter:
 one: file = "%s", fileExt = [%s], newFileExt = [%s]' % (self.__fileName,
                                                         self.__fileExt,
                                                         newFileExt))
-        if '..' in newFileName:
-            print self.__fileName, self.__fileExt, newFileExt, newFileName
-            raise NotImplementedError
+        #if '..' in newFileName:
+            #print self.__fileName, self.__fileExt, newFileExt, newFileName
+            #raise NotImplementedError
         return newFileName
 
 
@@ -462,11 +460,11 @@ class ParseFastaFile(object):
         if not os.path.isfile(idxFile):
             Utilities.mySystem('grep ">" %s > %s' % (self.filename, idxFile))
 
-    def _getSequenceNameListFromFile(self, filtered=False):
+    def _getSequenceNameListFromFile(self, filtered=False, excludeMT=False):
         self._createFastaIdxFile()
         fh = open(self._getIdxFileName())
         for seqName in fh:
-            seqName = seqName.lstrip('>').strip()
+            seqName = seqName.lstrip('>').strip().split()[0]
             if filtered:
                 seqName = FastaSeq(
                     seqName, None).getShortSeqName().split('_')[0]
@@ -477,6 +475,10 @@ class ParseFastaFile(object):
                                   not ValueParser().isNb(seqName[3:]) and
                                   len(seqName) not in [4, 5]):
                     continue
+                if not ValueParser().isNb(seqName.replace('chr', '')) and seqName.replace('chr', '') not in ['X', 'Y', 'M', 'MT']:
+                    continue
+            if excludeMT and seqName in ['M', 'MT', 'chrM', 'chrMT']:
+                continue
             yield seqName
         fh.close()
 

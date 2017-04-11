@@ -32,10 +32,13 @@ RUN \
   git clone https://github.com/FJD-CEPH/aCNViewer.git
 
 RUN \
-  wget http://www.cephb.fr/tools/aCNViewer/aCNViewer_TEST_DATA.tar.gz
+  wget http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz
 
 RUN \
-  tar xzf aCNViewer_TEST_DATA.tar.gz
+  tar xzf aCNViewer_DATA.tar.gz
+
+RUN \
+  python aCNViewer/code/aCNViewer.py -P installDependencies
 
 # Define default command.
 #CMD ["python", "aCNViewer/code/aCNViewer.py"]
