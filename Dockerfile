@@ -31,8 +31,10 @@ WORKDIR /data
 RUN \
   git clone https://github.com/FJD-CEPH/aCNViewer.git
 
+#RUN \
+#  wget http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz
 RUN \
-  wget http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz
+   wget https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz
 
 RUN \
   tar xzf aCNViewer_DATA.tar.gz

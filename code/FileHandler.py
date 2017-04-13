@@ -353,13 +353,13 @@ class FileNameGetter:
         self.__fileName = fileName
         self.__fileExt = Utilities.getFileExtension(fileName)
 
-    def get(self, newFileExt):
+    def get(self, newFileExt, checkFileNames = True):
         shift = 0
         if newFileExt[0] in ['_', '.']:
             shift = -1
         newFileName = self.__fileName[
             :-len(self.__fileExt) + shift] + newFileExt
-        if newFileName == self.__fileName:
+        if checkFileNames and newFileName == self.__fileName:
             raise NotImplementedError('new file name is the same as original \
 one: file = "%s", fileExt = [%s], newFileExt = [%s]' % (self.__fileName,
                                                         self.__fileExt,

@@ -1661,8 +1661,79 @@ class aCNViewer:
         self.__rLibDir = rLibDir
         self.__nbPermutations = nbPermutations
         self.__setColorDictFromFile(rColorFile)
-        self.__outputFormat = outputFormat
-
+        self.__checkAndSetOutputFormat(outputFormat)
+        
+    def __updateOutputParamDict(self, outputFormat, paramDict):
+        if outputFormat in ['tiff', 'tif']:
+            paramDict['compression'] = 'lzw'
+        
+    def __checkAndSetOutputFormat(self, outputFormat):
+        defaultOutputFormatDict = {'hist': ['png', {'width': 4000, 'height': 1800, 'res': 300}],
+                            'dend': ['png', {'width': 4000, 'height': 2200, 'res': 300}],
+                            'heat': ['pdf', {'width': 10, 'height': 12}]}
+        #print [outputFormat]
+        outputFormatDict = {}
+        #heat:png(width=1,height=3);hist:png()
+        supportedFormatList = ['pdf', 'png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff']
+        outputFormatAliasDict = {'tif': 'tiff', 'jpg': 'jpeg'}
+        heatmapDefaultDict = {'width': 4000, 'height': 4800, 'res': 300}
+        if outputFormat:
+            if ',' not in outputFormat and ';' not in outputFormat:
+                if outputFormat not in supportedFormatList:
+                    raise NotImplementedError('Supported formats are %s but found "%s"' % (str(supportedFormatList)), outputFormat)
+                for keyword in defaultOutputFormatDict:
+                    if outputFormat == 'pdf':
+                        paramList = defaultOutputFormatDict['heat']
+                    else:
+                        paramList = copy.copy(defaultOutputFormatDict[keyword])
+                        paramList[0] = outputFormatAliasDict.get(outputFormat, outputFormat)
+                        if keyword == 'heat':
+                            paramList[1] = heatmapDefaultDict
+                        self.__updateOutputParamDict(outputFormat, paramList[1])
+                        #if outputFormat in ['tiff', 'tif']:
+                            #paramList[1]['compression'] = 'lzw'
+                    outputFormatDict[keyword] = paramList
+            else:
+                partList = outputFormat.split(';')
+                for i, keywordStr in enumerate(partList):
+                    keywordStr = keywordStr.replace(' ', '')
+                    #print '@' * 50
+                    #print [keywordStr]
+                    keyword, keywordStr = keywordStr.split(':')
+                    #print keyword, keywordStr
+                    if '(' in keywordStr:
+                        outputFormat, keywordStr = keywordStr.split('(')
+                        #print '~' * 50
+                        #print outputFormat, keywordStr
+                        if keywordStr[-1] != ')':
+                            raise NotImplementedError('Error in outputFormat "%s". Supported formats are: "hist:png(width=4000,height=1800,res=300);dend:png(=4000,height=2200,res=300);heat:pdf"' % (partList[i]))
+                        keywordStr = keywordStr.split(')')[0]
+                        paramDict = dict([keyword1.split('=') for keyword1 in keywordStr.split(',')])
+                        print paramDict
+                    else:
+                        outputFormat = keywordStr
+                        if outputFormat == 'pdf':
+                            paramDict = defaultOutputFormatDict['heat'][1]
+                        else:
+                            if keyword == 'heat':
+                                paramDict = heatmapDefaultDict
+                            else:
+                                paramDict = defaultOutputFormatDict[keyword][1]
+                            self.__updateOutputParamDict(outputFormat, paramDict)
+                    outputFormatDict[keyword] = [outputFormatAliasDict.get(outputFormat, outputFormat), paramDict]
+                    if outputFormat not in supportedFormatList:
+                        raise NotImplementedError('Supported formats are %s but found "%s" in "%s"' % (str(supportedFormatList)), outputFormat, partList[i])
+                #print ':' * 20
+                #print outputFormatDict
+                for keyword in set(defaultOutputFormatDict) - set(outputFormatDict):
+                    outputFormatDict[keyword] = defaultOutputFormatDict[keyword]
+        else:
+            outputFormatDict = defaultOutputFormatDict
+        self.__outputFormatDict = outputFormatDict
+        #print outputFormatDict
+        #print outputFormatDict.keys()
+        #sys.exit(0)
+        
     def __isStrHtmlHexadecimalColor(self, colorStr):
         if len(colorStr) != 7 or colorStr[0] != '#':
             return
@@ -2857,7 +2928,8 @@ subdat2$V1 <- factor(subdat2$V1, levels = levels(factor(subdat2$V1)))
 subdat1$V1 <- factor(subdat1$V1, levels = rev(levels(factor(subdat1$V1))))
 centro = data.frame(pos=%(centroPosStr)s,
 V2=c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22))
-png("%(filePattern)s.png", width=4000, height=1800, res=300)
+#png("%(filePattern)s.png", width=4000, height=1800, res=300)
+%(outputFormatStr)s
 cols <- %(colorStr)s
 if ("expand" %%in%% names(formals(coord_cartesian))) {
    yLim <- coord_cartesian(ylim=c(-%(yMax)d,%(yMax)d), expand = FALSE)
@@ -2888,7 +2960,8 @@ dev.off()
             'yMax': maxValue, 'lohGraphStr': lohGraphStr,
             'histDataFile': os.path.abspath(histDataFile),
             'filePattern': rFileName.replace('.R', ''),
-            'colorStr': R()._getStrFromList(colorStrList)}
+            'colorStr': R()._getStrFromList(colorStrList),
+            'outputFormatStr': self.__getOutputFormatStr('hist', "%s.png" % rFileName.replace('.R', ''))}
         outFh = CsvFileWriter(rFileName)
         outFh.write(rStr)
         return rFileName
@@ -3263,6 +3336,18 @@ for (pos in colnames(a)){
         colorToUseList = [colorList[idx] for idx in range(len(colorList)) if idx not in missingIdxList]
         return colorToUseList
     
+    def __getOutputFormatStr(self, keyword, fileName, isRcode = False):
+        outputFormat, paramDict = self.__outputFormatDict[keyword]
+        paramStr = ''
+        for varName, value in paramDict.iteritems():
+            if not ValueParser().isNb(value):
+                value = '"%s"' % value
+            paramStr += '%s = %s, ' % (varName, value)
+        if not isRcode:
+            fileName = '"%s"' % FileNameGetter(fileName).get(outputFormat)
+        outputFormatStr = '%s(%s, %s)' % (outputFormat, fileName, paramStr[:-2])
+        return outputFormatStr
+    
     def __createHeatmap2(self, matrixFile, hclustStr, height, width, cexRow,
                          cexCol, margins, labRowStr, labColStr, groupDict,
                          hclust, groupLegendPos, chrLegendPos,
@@ -3295,6 +3380,7 @@ for (pos in colnames(a)){
         hrStr = 'hr <- hclust(dist(t(a)), method="%s")' % hclust
         rowVstr = 'as.dendrogram(hr)'
         dendroStr = ''
+        outputFormatStr = ''
         if keepGenomicPosForHistogram:
             hrStr = ''
             rowVstr = '"NA"'
@@ -3315,7 +3401,8 @@ hc <- hclust(dist(a), method="%(hclustMethod)s")
 
 for (colColorList in allColColorList){
     print(paste("Generating heatmap for colName <", colColorList$title, ">"))
-    pdf(colColorList$outFileName, height=%(height)d, width=%(width)d)
+    %(outputFormatStr)s
+    #pdf(colColorList$outFileName, height=%(height)d, width=%(width)d)
     #heatmap.2(t(a), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc),
     #margins=%(marginStr)s, key=TRUE, symkey=FALSE, density.info="histogram",
     #denscol="black", trace="none", scale="none", col=c(c("red", "orange",
@@ -3389,7 +3476,8 @@ for (colColorList in allColColorList){
                        'heatmapColorStr': heatmapColorStr,
                        'usedColorStr': R()._getStrFromList(usedColorList),
                        'hclustMethod': hclust, 'hrStr': hrStr,
-                       'rowVstr': rowVstr, 'dendroStr': dendroStr}
+                       'rowVstr': rowVstr, 'dendroStr': dendroStr,
+                       'outputFormatStr': self.__getOutputFormatStr('heat', 'colColorList$outFileName', True)}
         R().runCmd(rStr, FileNameGetter(matrixFile).get('_heatmap_%s.R' %
                                                         hclust))
 
@@ -3605,7 +3693,7 @@ $title <- "%(title)s"\n' % {'i': i,
                             'legendList': R()._getStrFromList(legendList),
                             'legendColorList': R()._getStrFromList(
                                 legendColorList),
-                            'outFileName': outFileName,
+                            'outFileName': FileNameGetter(outFileName).get(self.__outputFormatDict['heat'][0], False),
                             'title': colName}
             rStr += groupStr
         rStr += '\nallColColorList <- list(%s)\n' % (
@@ -3862,14 +3950,14 @@ m <- b
 obj%(idx)d <- c()
 obj%(idx)d$getShapeForSample <- getShapeForSample
 obj%(idx)d$getColorForSample <- getColorForSample
-obj%(idx)d$outFileName <- "%(pngFile)s"
+obj%(idx)d$outFileName <- "%(imgFile)s"
 obj%(idx)d$col <- %(colStr)s
 obj%(idx)d$legend <- %(legendStr)s
 obj%(idx)d$shape <- %(shapeStr)s
 obj%(idx)d$title <- "%(title)s"
 ''' % {'pngFile': imgFile, 'getColorFuncStr': getColorFuncStr,
                 'getShapeFuncStr': getShapeFuncStr, 'idx': i,
-                'pngFile': imgFile,
+                'imgFile': FileNameGetter(imgFile).get(self.__outputFormatDict['dend'][0], False),
                 'colStr': R()._getStrFromList(colorList),
                 'legendStr': R()._getStrFromList(groupList),
                 'shapeStr': R()._getStrFromList(shapeList), 'title': colName}
@@ -3882,7 +3970,8 @@ obj%(idx)d$title <- "%(title)s"
 
 for (obj in allFunctionList){
     print(paste("Generating dendrogram for colName <", obj$title, ">"))
-    png(obj$outFileName, width=4000, height=2200, res=300)
+    #png(obj$outFileName, width=4000, height=2200, res=300)
+    %(outputFormatStr)s
     plot(d)
     xylim <- par("usr")
     plotdim <- par("pin")
@@ -3895,7 +3984,8 @@ for (obj in allFunctionList){
 }''' % {'drawShapeStr': drawShapeStr,
             'allFunctionStr': ', '.join(['obj%d' % i for i in
                                          range(len(groupListDict))]),
-            'legendStr': legendStr}
+            'legendStr': legendStr,
+            'outputFormatStr': self.__getOutputFormatStr('dend', 'obj$outFileName', True)}
 
         # outFh = CsvFileWriter(rFileName)
         # outFh.write(rStr)
@@ -4182,12 +4272,18 @@ for (obj in allFunctionList){
         return fh.getSplittedLine() == ['sample', 'chr', 'startpos', 'endpos',
                                         'nMajor', 'nMinor']
 
+    def __copyRfile(self, fileName, targetDir):
+        fh = open(fileName)
+        content = fh.read()
+        fh.close()
+        outFh = open(os.path.join(targetDir, os.path.basename(fileName)), 'w')
+        outFh.write(content.replace('/tmp/', '/'))
+        outFh.close()
+        
     def __cleanDir(self, tmpDir):
         targetDir = os.path.dirname(tmpDir)
-        for cmd in ['mv %s %s' % (os.path.join(tmpDir, '*.png'), targetDir),
-                    'mv %s %s' % (os.path.join(tmpDir, '*.pdf'), targetDir),
-                    'mv %s %s' % (os.path.join(tmpDir, '*_samples.txt'), targetDir),
-                    'mv %s %s' % (os.path.join(tmpDir, '*.txt'), targetDir)]:
+        for pattern in ['.png', '.jpeg', '.tiff', '.bmp', '.pdf', '.txt',]:
+            cmd = 'mv %s %s' % (os.path.join(tmpDir, '*%s' % pattern), targetDir)
             os.system(cmd + ' 2> /dev/null')
         aptOutDir = os.path.join(tmpDir, 'apt_out')
         if os.path.isdir(aptOutDir):
@@ -4200,8 +4296,9 @@ for (obj in allFunctionList){
         for fileName in glob.glob(os.path.join(tmpDir, '*')):
             if os.path.isdir(fileName):
                 Utilities.mySystem('mv %s %s' % (fileName, targetDir))
-        for cmd in ['mv %s %s' % (os.path.join(tmpDir, '*.R'), targetDir),
-                    'rm -rf %s' % tmpDir]:
+        for rFile in glob.glob(os.path.join(tmpDir, '*.R')):
+            self.__copyRfile(rFile, targetDir)
+        for cmd in ['rm -rf %s' % tmpDir]:
             Utilities.mySystem(cmd)
     
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
@@ -4739,7 +4836,7 @@ chromosome'),
 
                            CommandParameter('o', 'outFileName', 'string'),
 
-                           CommandParameter('O', 'outputFormat', 'string', defaultValue='png'),
+                           CommandParameter('O', 'outputFormat', 'string'),
                            
                            CommandParameter('p', 'percentage', 'float',
                                             helpString='Segment size in \
