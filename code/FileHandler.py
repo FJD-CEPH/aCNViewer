@@ -60,7 +60,7 @@ class FileParser(object):
         fileExt = Utilities.getFileExtension(self.fileName)
         if fileExt == 'gz':
             # fh = Utilities.popen('cat %s | gunzip' % self.fileName)
-            fh = os.popen('gunzip -c %s' % self.fileName)
+            fh = os.popen('gunzip -c %s 2> /dev/null' % self.fileName)
             # fh = gzip.open(self.fileName)
         elif fileExt == 'xz':
             fh = os.popen('xz -dc ' + self.fileName)

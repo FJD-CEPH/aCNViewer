@@ -10,11 +10,8 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
       + [Illumina](#illumina)
-    
     * [Processing NGS data](#ngs)
-  
     * [Processing CNV file](#processing-cnv-file)
-
 - [Output files](#outputfiles)
   
 
@@ -65,11 +62,7 @@ aCNViewer can also be installed from its source by:
 
 ### Requirements:
 
-Let's call `aCNViewer_DATA` the location where the test data set below has been uncompressed into and `BIN_DIR` the folder containing all third-party softwares. Download:
-
-* the test data set [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz)
-
-* [Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2) from Affymetrix website and uncompress it into `BIN_DIR` if you want to analyze raw Affymetrix SNP data.
+Let's call `aCNViewer_DATA` the location where the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz) has been uncompressed into and `BIN_DIR` the folder containing all third-party softwares located in `aCNViewer_DATA/bin`. Download the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz).
 
 
 ### Processing SNP array data
@@ -78,7 +71,9 @@ Let's call `aCNViewer_DATA` the location where the test data set below has been 
 
 ##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
 
-`python aCNViewer.py -f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
+
+
+<p style="background-color:lightblue;">`python aCNViewer/code/aCNViewer.py -f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`</p>
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 

@@ -113,8 +113,7 @@ class ThreadManager:
         self.__adjustProcNb = adjustProcNb
         self.__canProcBeAdjusted = False
         self.__maxProcNb = _detect_ncpus()
-        #print 'maxThreadNb = %s' % maxThreadNb
-        #sys.exit(0)
+        self.__jobDict = {}
 
     def __del__(self):
         print 'Waiting for all jobs to complete before exiting'
@@ -139,8 +138,15 @@ class ThreadManager:
         while len(self.__threadList):
             thread = self.__threadList.pop(0)
             if thread._error:
-                import Log
-                Log.error('ERROR in thread:' + thread._error)
+                if os.environ.get('ALLOW_ERROR') == '1':
+                    self.__canProcBeAdjusted = True
+                    continue
+                msg = 'ERROR in thread:' + thread._error
+                try:
+                    import Log
+                    Log.error(msg)
+                except:
+                    print msg
                 raise NotImplementedError
             if thread.isAlive():
                 newThreadList.append(thread)
@@ -149,6 +155,8 @@ class ThreadManager:
                 if self.__keepResults:
                     # print 'KEEEP', thread._res
                     self._resList.append((thread._args, thread._res))
+                if hasattr(thread, '_expectedOutputFile') and thread._expectedOutputFile:
+                    self.__jobDict[thread._expectedOutputFile] = None
         self.__threadList = newThreadList
 
     def wait(self, callbackFunc=None, *args):
@@ -199,6 +207,8 @@ class ThreadManager:
         thread = ThreadFunc(func, *args)
         thread.daemon = True
         thread._nbProc = self.__nbProc
+        if hasattr(self, '__expectedOutputFile'):
+            thread._expectedOutputFile = self.__expectedOutputFile
         self.__removeFinishedJobs()
         self.__threadList.append(thread)
         # print 'Running thread'
@@ -226,6 +236,7 @@ class ThreadManager:
             cmdList[0] = command
             command = ' && '.join(cmdList)
         self.__nbProc = nbProc
+        self.__expectedOutputFile = expectedOutputFile
         self.submit(Utilities.mySystem, command)
 
 
@@ -587,6 +598,13 @@ file in %s' % (self.__nbParts, len(self._jobList), nbJobs, self.__targetDir)
     def getJobDetails(self, jobId):
         raise NotImplementedError
 
+    def getOutErrFileForJobId(self, jobId):
+        jobStr = self.getJobDetails(jobId)
+        return self._extractOutErrFileFromJobStr(jobStr)
+        
+    def _extractOutErrFileFromJobStr(self, jobStr):
+        raise NotImplementedError
+    
     def isMasterNode(self):
         # for key in os.environ:
             # if self.MASTER_VAR in key:
@@ -974,6 +992,15 @@ class SLURMcluster(HpcBase):
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
 
+    def __extractItemFromStr(self, jobStr, item):
+        idx = jobStr.find(item)
+        if idx == -1:
+            raise NotImplementedError('Can not find "%s" file in [%s]' % (item, jobStr))
+        return jobStr[idx:].split('=')[-1].split()[0]
+    
+    def _extractOutErrFileFromJobStr(self, jobStr):
+        return self.__extractItemFromStr(jobStr, 'StdOut='), self.__extractItemFromStr(jobStr, 'StdErr=')
+    
     def getJobDetails(self, jobId):
         fh = os.popen('sjinfo %d' % jobId)
         return fh.read()
@@ -1028,7 +1055,8 @@ jobs/%s' % scriptName
                 # nbProc = min(_detect_ncpus(), nbProc)
                 if memory > 10:
                     memory /= 2
-            walltime *= 4
+            if walltime:
+                walltime *= 4
         if adjustMemory and nbProc:
             memory /= nbProc
         optionStr = ''
@@ -1094,7 +1122,11 @@ class SLURMCCRTcluster(HpcBase):
     _endJobIdStr = '\n'
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
-
+    
+    def getJobDetails(self, jobId):
+        fh = os.popen('ccc_mstat -b %d' % jobId)
+        return fh.read()
+    
     def getJobIdList(self):
         fh = os.popen('ccc_mstat -u $USER')
         content = fh.read()
@@ -1135,12 +1167,18 @@ class SLURMCCRTcluster(HpcBase):
         projectName = 'fg0016'
         if os.environ.get('PROJECT_NAME'):
             projectName = os.environ.get('PROJECT_NAME')
+        fileSystem = None
+        if os.environ.get('FILE_SYSTEM'):
+            fileSystem = os.environ.get('FILE_SYSTEM')
         if walltime > maxWallTime and not isinstance(queue, types.TupleType):
             queue = queue, 'long'
         if isinstance(queue, types.TupleType):
             queue, qos = queue
         if qos == 'long':
+            if walltime <= maxWallTime:
+                qos = None
             maxWallTime *= 3
+            
         elif qos == 'test':
             walltime = -1
         if not walltime:
@@ -1151,13 +1189,15 @@ class SLURMCCRTcluster(HpcBase):
             walltime = maxWallTime
         if walltime == -1:
             walltime = None
-        memory = min(memory, 8)
+        #memory = min(memory, 8)
         cmd = 'echo "%s" | ccc_msub -c %d -M %d -A %s -q %s ' % (
             command, nbProc, memory * 1000, projectName, queue)
         if qos:
             cmd += '-Q %s ' % qos
         if walltime:
             cmd += '-T %d ' % walltime
+        if fileSystem:
+            cmd += '-m %s ' % fileSystem
         if jobName:
             if '[' in jobName:
                 arrayIdxStr = jobName.split('[')[-1].split(']')[0]
@@ -1188,8 +1228,8 @@ def __isMasterNode():
     # os.popen('hostname').read().strip())
     # return stdout.read() and 'not defined' not in stderr.read()
 
-
-def guessHpc(allowLocalRun=False, nbCpus=None, *args):
+    
+def guessHpcOld(allowLocalRun=False, nbCpus=None, *args):
     if not nbCpus:
         nbCpus = _getNbAvailableCpus()
     if _guessLocation() == HpcScriptBase.CNG_MAC:
@@ -1236,6 +1276,29 @@ def __isMasterNode():
 
 
 def guessHpc(allowLocalRun=False, nbCpus=None, useFromMasterNode=True, *args):
+    cmdAndClusterTypeList = [('qsub', SGEcluster), ('ccc_msub', SLURMCCRTcluster), ('sbatch', SLURMcluster), ('bsub', LSFcluster), ('msub', MOABcluster)]
+    if not nbCpus:
+        nbCpus = _getNbAvailableCpus()
+    msg = 'Warning cluster not found, using ThreadManager instead with %d \
+cpus' % nbCpus
+    if os.environ.get('USE_REMOTE'):
+        print 'REMOTE: %s' % msg
+        machineList = os.environ['USE_REMOTE'].split(',')
+        print 'Machines', machineList
+        return RemoteThreadManager(machineList)
+    for cmd, clusterClass in cmdAndClusterTypeList:
+        fh = os.popen('%s -h 2> /dev/null' % cmd)
+        if fh.read():
+            if clusterClass == SGEcluster and useFromMasterNode and not __isMasterNode():
+                return ThreadManager(nbCpus, *args)
+            return clusterClass()
+    if allowLocalRun:
+        print msg
+        return ThreadManager(nbCpus, *args)
+    return ThreadManager(nbCpus, *args)
+    
+    
+def guessHpcOld2(allowLocalRun=False, nbCpus=None, useFromMasterNode=True, *args):
     if not nbCpus:
         nbCpus = _getNbAvailableCpus()
     if _guessLocation() == HpcScriptBase.CNG_MAC:
@@ -1301,12 +1364,12 @@ def _guessLocation():
         location = HpcScriptBase.CCRT_SLURM
     elif 'mcgill' in os.environ.get('HOSTNAME', ''):
         location = HpcScriptBase.MC_GILL
-    elif 'MODULEPATH' in os.environ:
-        location = HpcScriptBase.GUILLIMIN
     elif hostName == 'vmaster1':
         location = HpcScriptBase.CEPH_SLURM
     elif cluster is None or isinstance(cluster, SGEcluster):
         location = HpcScriptBase.CEPH
+    elif 'MODULEPATH' in os.environ:
+        location = HpcScriptBase.GUILLIMIN
     return location
 
 

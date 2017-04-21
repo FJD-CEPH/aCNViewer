@@ -25,22 +25,31 @@ class RunTQN:
 
     def __init__(self, binDir=None):
         self.__binDir = binDir
+        if binDir:
+            self.__tQN_folder = glob.glob(os.path.join(binDir, 'tQN*'))
+            if len(self.__tQN_folder) == 1:
+                self.__tQN_folder = self.__tQN_folder[0]
+            else:
+                raise NotImplementedError('Could not find tQN folder in %s' % binDir)
 
-    def __getHeaderForTQNinput(self, header):
+    def __getHeaderForTQNinput(self, header, tQN_header):
+        if tQN_header:
+            return tQN_header
         currentHeader = ['Name', 'Chr', 'Position']
         return currentHeader +\
             [columnName for columnName in header if columnName not in
              currentHeader + ['SNP Name']]
 
     def __getOutFhForSampleName(self, sampleName, fhDict, targetDir, fileName,
-                                header):
+                                header, tQN_header = None):
         outFh = fhDict.get(sampleName)
         if not outFh:
             outFileName = FileNameGetter(os.path.basename(fileName))
             outFileName = outFileName.get('_%s.txt' % sampleName)
+            #print 'OUT=[%s]' % outFileName
             outFileName = os.path.join(targetDir, outFileName)
             outFh = CsvFileWriter(outFileName)
-            outFh.write(self.__getHeaderForTQNinput(header))
+            outFh.write(self.__getHeaderForTQNinput(header, tQN_header))
             fhDict[sampleName] = outFh
         return outFh
 
@@ -48,34 +57,71 @@ class RunTQN:
         return [value for i, value in enumerate(splittedLine) if i not in
                 idxToExcludeList]
 
+    def __getXandYidxDictFromHeader(self, header):
+        xIdxDict = {}
+        yIdxDict = {}
+        for i, columnName in enumerate(header):
+            partList = columnName.split('.')
+            dictToUse = None
+            if partList[-1] == 'X':
+                dictToUse = xIdxDict
+            elif partList[-1] == 'Y':
+                dictToUse = yIdxDict
+            if dictToUse is not None:
+                dictToUse[partList[0]] = i
+        return xIdxDict, yIdxDict
+    
     def _splitFinalReportBySample(self, fileName, targetDir, snpFile,
                                   sampleList=None):
         snpPosDict = RunAscat()._getSnpDictFromFile(snpFile)
         Utilities.mySystem('mkdir -p %s' % targetDir)
-        fh, sampleName, header, outFileName = \
+        fh = ReadFileAtOnceParser(fileName)
+        header = fh.getSplittedLine()
+        
+        fhDict = {}
+        if 'ID' in header:
+            idIdx = header.index('ID')
+            xIdxDict, yIdxDict = self.__getXandYidxDictFromHeader(header)
+            tQN_header = ['Name', 'Chr', 'Position', 'X', 'Y']
+            for splittedLine in fh:
+                snpId = splittedLine[idIdx]
+                if snpId not in snpPosDict:
+                    continue
+                chrName, pos = snpPosDict[snpId]
+                for sampleName, xIdx in xIdxDict.iteritems():
+                    
+                    yIdx = yIdxDict[sampleName]
+                    outFh = self.__getOutFhForSampleName(sampleName, fhDict,
+                                                         targetDir, fileName,
+                                                         header, tQN_header)
+                    outFh.write([snpId, chrName, pos] + [splittedLine[xIdx],
+                                                         splittedLine[yIdx]])
+        else:
+            del fh
+            fh, sampleName, header, outFileName = \
             self._getFhSampleNameHeaderAndOutFileNameFromFile(
                 fileName, targetDir)
-        fhDict = {}
-        sampleIdIdx = header.index('Sample ID')
-        snpIdx = header.index('SNP Name')
-        idxToExcludeList = [snpIdx]
-        if 'Chr' in header:
-            idxToExcludeList.append(header.index('Chr'))
-        if 'Position' in header:
-            idxToExcludeList.append(header.index('Position'))
-        for splittedLine in fh:
-            sampleName = splittedLine[sampleIdIdx]
-            if sampleList and sampleName not in sampleList:
-                print 'Passing sample %s' % sampleName
-                continue
-            snpName = splittedLine[snpIdx]
-            if snpName not in snpPosDict:
-                continue
-            chrName, pos = snpPosDict[snpName]
-            outFh = self.__getOutFhForSampleName(sampleName, fhDict, targetDir,
-                                                 fileName, header)
-            outFh.write([snpName, chrName, pos] + self.__getTQNlineToWrite(
-                splittedLine, header, idxToExcludeList))
+            
+            sampleIdIdx = header.index('Sample ID')
+            snpIdx = header.index('SNP Name')
+            idxToExcludeList = [snpIdx]
+            if 'Chr' in header:
+                idxToExcludeList.append(header.index('Chr'))
+            if 'Position' in header:
+                idxToExcludeList.append(header.index('Position'))
+            for splittedLine in fh:
+                sampleName = splittedLine[sampleIdIdx]
+                if sampleList and sampleName not in sampleList:
+                    print 'Passing sample %s' % sampleName
+                    continue
+                snpName = splittedLine[snpIdx]
+                if snpName not in snpPosDict:
+                    continue
+                chrName, pos = snpPosDict[snpName]
+                outFh = self.__getOutFhForSampleName(sampleName, fhDict, targetDir,
+                                                     fileName, header)
+                outFh.write([snpName, chrName, pos] + self.__getTQNlineToWrite(
+                    splittedLine, header, idxToExcludeList))
 
     def __getBeadchipFromIlluminaFinalReportFile(self, fileName):
         fh = ReadFileAtOnceParser(fileName)
@@ -85,7 +131,7 @@ class RunTQN:
 
     def _getBeadchipList(self):
         beadchipList = []
-        for clusterFile in glob.glob(os.path.join(self.__binDir, 'tQN', 'lib',
+        for clusterFile in glob.glob(os.path.join(self.__tQN_folder, 'lib',
                                                   '*clusters.txt')):
             beadchip = os.path.basename(clusterFile).split('_tQN')[0]
             beadchipList.append(beadchip)
@@ -109,7 +155,7 @@ class RunTQN:
         for beadchip in beadchipList:
             nbMatches = self.__getMatchLengthForBeadchips(beadchip, fileName)
             resDict[nbMatches].append(beadchip)
-        print beadchipList, resDict
+        print beadchipList, resDict, beadchip
         beadchipList = resDict[max(resDict.keys())]
         if len(beadchipList) != 1:
             raise NotImplementedError('Could not automatically choose beadchip \
@@ -169,7 +215,7 @@ class RunTQN:
         header = ReadFileAtOnceParser(fileName, bufferSize=1).getSplittedLine()
         xIdx = header.index('X')
         yIdx = header.index('Y')
-        cmd = 'cut -f 1-3,%d,%d %s > %s' % (xIdx, yIdx, fileName, outFileName)
+        cmd = 'cut -f 1-3,%d,%d %s > %s' % (xIdx+1, yIdx+1, fileName, outFileName)
         Utilities.mySystem(cmd)
 
     def _run(self, splitDir, beadchip):
@@ -191,17 +237,15 @@ class RunTQN:
         outputDir = os.path.join(splitDir, 'normalized')
         Utilities.mySystem('mkdir -p %s' % outputDir)
         self.__linkTQNfiles(splitDir)
-        tQNdir = os.path.join(self.__binDir, 'tQN')
         cmd = 'cd %s && perl %s/tQN_normalize_samples.pl --beadchip=%s \
-        --input_directory=%s --output_directory=%s' % \
-            (splitDir, tQNdir, beadchip, splitDir, outputDir)
+--input_directory=%s --output_directory=%s' % \
+            (splitDir, self.__tQN_folder, beadchip, splitDir, outputDir)
         Utilities.mySystem(cmd)
         return outputDir
 
     def __linkTQNfiles(self, targetDir):
-        tQNdir = os.path.join(self.__binDir, 'tQN')
-        for fileName in [os.path.join(tQNdir, 'lib'),
-                         os.path.join(tQNdir, 'tQN.R')]:
+        for fileName in [os.path.join(self.__tQN_folder, 'lib'),
+                         os.path.join(self.__tQN_folder, 'tQN.R')]:
             os.system('ln -s %s %s' % (fileName, targetDir))
 
     def _normalizeData(self, fileName, targetDir=None, beadchip=None):
@@ -215,11 +259,10 @@ class RunTQN:
         outputDir = os.path.join(sampleDir, 'normalized')
         Utilities.mySystem('mkdir -p %s' % outputDir)
         self.__linkTQNfiles(sampleDir)
-        tQNdir = os.path.join(self.__binDir, 'tQN')
         # print os.environ['HOSTNAME']
         cmd = 'cd %s && perl %s/tQN_normalize_samples.pl --beadchip=%s \
         --input_directory=%s --output_directory=%s' % \
-            (sampleDir, tQNdir, beadchip, sampleDir, outputDir)
+            (sampleDir, self.__tQN_folder, beadchip, sampleDir, outputDir)
         Utilities.mySystem(cmd)
         return
 
@@ -282,11 +325,44 @@ class DefaultPloidyDict(dict):
 
 
 class RunAscat:
-
     def __init__(self, binDir=None, rLibDir=None):
         self.__binDir = binDir
+        if binDir:
+            Utilities()._runFunc(self._downloadGcFiles, [], os.path.join(binDir, 'ascat', 'gc'))
+            self.__setGcDict()
         self.__rLibDir = rLibDir
 
+    def __setGcDict(self):
+        self.__gcFileDict = {}
+        gcToPlatformDict = {'Affy250k': 'Affy250k_sty', 'IlluminaOmniexpress': 'HumanOmniExpress12'}
+        for gcFile in glob.glob(os.path.join(self.__binDir, 'ascat', '*')):
+            if os.path.basename(gcFile)[:3] != 'GC_':
+                continue
+            partList = os.path.basename(gcFile).split('_')
+            platform = partList[1].split('.')[0]
+            self.__gcFileDict[gcToPlatformDict.get(platform, platform)] = gcFile
+        
+    def _downloadGcFiles(self):
+        if not self.__binDir:
+            raise NotImplementedError('binDir is None, please set binDir with option "-b BIN_DIR"')
+        from WebExtractor import WebExtractor
+        targetDir = os.path.join(self.__binDir, 'ascat')
+        Utilities.mySystem('mkdir -p %s' % targetDir)
+        url = 'https://www.crick.ac.uk/peter-van-loo/software/ASCAT'
+        content = WebExtractor()._getPageContentForUrl(url)
+        #print [content]
+        urlBase = os.path.dirname(os.path.dirname(os.path.dirname(url)))
+        for linkUrl in WebExtractor()._getStrListIncludedInTag(content, 'href="', '"'):
+            #print '@@@', linkUrl
+            if linkUrl.split('/')[-1][:3] == 'GC_':
+                linkUrl = linkUrl.lstrip('/').replace('\n', '')
+                #print [linkUrl], urlBase
+                targetFileName = os.path.join(targetDir, os.path.basename(linkUrl))
+                cmd = 'wget -O %s %s' % (targetFileName, os.path.join(urlBase, linkUrl))
+                Utilities.mySystem(cmd)
+                cmd = 'cd %s && unzip %s && rm %s' % (targetDir, targetFileName, targetFileName)
+                Utilities.mySystem(cmd)
+        
     def __writeMarkersAndGetNewMarkerNb(self, chrName, start, end, markerNb, outFh, snpDict):
         if (chrName, start) not in snpDict:
             outFh.write(['m%d' % markerNb, chrName, start])
@@ -1104,34 +1180,91 @@ does not contain "%s"' % (header, tQNkeyword))
             chrName, pos = snpPosDict[snpName]
             outFh.write([splittedLine[0], chrName, pos] + splittedLine[1:])
 
+    def __getIlluminaProcessedFormattedHeaderAndIdxList(self, header):
+        chrIdx = header.index('Chr')
+        mapInfoIdx = header.index('MapInfo')
+        nameIdx = header.index('Name')
+        logRidxList = []
+        bafIdxList = []
+        sampleList = []
+        sampleToValueDict = defaultdict(dict)
+        for i, columnName in enumerate(header):
+            partList = columnName.split('.')
+            if len(partList) != 2:
+                continue
+            sampleName, dataType = partList
+            sampleName = sampleName.replace('#', 'A')
+            if sampleName not in sampleList:
+                sampleList.append(sampleName)
+            if dataType in ['B Allele Freq', 'Log R Ratio']:
+                sampleToValueDict[sampleName][dataType] = i, columnName
+        header = ['Name', 'Chr', 'Position']
+        idxList = [nameIdx+1, chrIdx+1, mapInfoIdx+1]
+        for sampleName in sampleList:
+            i, columnName = sampleToValueDict[sampleName]['B Allele Freq']
+            header.append(columnName.replace('#', 'A'))
+            idxList.append(i+1)
+            i, columnName = sampleToValueDict[sampleName]['Log R Ratio']
+            header.append(columnName.replace('#', 'A'))
+            idxList.append(i+1)
+        return header, idxList
+            
+    def __convertIlluminaProcessedFileIntoLrrBafFile(self, fileName, header, outputFileName):
+        # format is ['Name', 'Chr', 'Position', LogR1, BAF1, LogR2, BAF2, ...]
+        header, idxList = self.__getIlluminaProcessedFormattedHeaderAndIdxList(header)
+        fh = CsvFileWriter(outputFileName)
+        fh.write(header)
+        fh.close()
+        if fileName[-3:] == '.gz':
+            cmd = 'zcat %s | sed "1d" | cut -f %s >> %s' % (fileName, ','.join([str(idx) for idx in idxList]), outputFileName)
+        else:
+            cmd = 'cut -f %s %s >> %s' % (','.join([str(idx) for idx in idxList]), fileName, outputFileName)
+        Utilities.mySystem(cmd)
+    
     def _createLrrBafFileFromIlluminaReport(self, fileName, snpFile,
                                             targetDir=None, sampleList=None,
-                                            normalize=True):
+                                            normalize=True, beadchip=None):
+        if normalize:
+            targetDir = os.path.join(targetDir, 'split')
         outFileName = FileNameGetter(fileName).get(
             '_%d_lrrBaf.txt' % int(normalize))
+        outFileName = os.path.join(targetDir, os.path.basename(outFileName))
+        fh = ReadFileAtOnceParser(fileName, 1)
+        header = fh.getSplittedLine()
+        del fh
+        headerStr = ','.join(header)
+        if 'ID' in header and ('Log R Ratio' not in headerStr and 'B Allele Freq' not in headerStr):
+            normalize = True
         if normalize:
-            beadchip = RunTQN(
+            if not beadchip:
+                beadchip = RunTQN(
                 self.__binDir)._getBeadchipNameFromIlluminaReportFile(fileName)
-            if not targetDir:
-                targetDir = os.path.join(os.path.dirname(fileName), 'split')
+            splittedFile = FileNameGetter(fileName).get('_split')
+            if os.path.basename(targetDir.rstrip(os.path.sep)) != 'split':
+                targetDir = os.path.join(targetDir, 'split')
             Utilities()._runFunc(RunTQN(self.__binDir).
                                  _splitFinalReportBySample,
                                  [fileName, targetDir, snpFile, sampleList],
-                                 FileNameGetter(fileName).get('_split'))
+                                 os.path.join(targetDir,
+                                              os.path.basename(splittedFile)))
+            dumpFileName = FileNameGetter(fileName).get('_tQN.pyDump')
+            dumpFileName = os.path.join(targetDir, os.path.basename(dumpFileName))
             tQNdir = Utilities().getFunctionResultWithCache(
-                FileNameGetter(fileName).get(
-                    '_tQN.pyDump'), RunTQN(self.__binDir)._run, targetDir,
+                dumpFileName, RunTQN(self.__binDir)._run, targetDir,
                 beadchip)
             normalizedFileName = os.path.join(tQNdir, 'tQN_beadstudio.txt')
             Utilities()._runFunc(self.__createLrrBafFileFromNormalizedFile, [
                 normalizedFileName, snpFile, outFileName], outFileName)
         else:
-            snpDict, finalSampleList = \
-                self.__getLogRandBafDictFromIlluminaReportFile(fileName,
-                                                               sampleList,
-                                                               targetDir)
-            self.__writeLrrBafFileFromDict(
-                snpDict, snpFile, finalSampleList, outFileName)
+            if 'Chr' in header:
+                self.__convertIlluminaProcessedFileIntoLrrBafFile(fileName, header, outFileName)
+            else:
+                snpDict, finalSampleList = \
+                    self.__getLogRandBafDictFromIlluminaReportFile(fileName,
+                                                                   sampleList,
+                                                                   targetDir)
+                self.__writeLrrBafFileFromDict(
+                    snpDict, snpFile, finalSampleList, outFileName)
         return outFileName
 
     def __getHeaderFromFhList(self, fhList):
@@ -1176,7 +1309,7 @@ does not contain "%s"' % (header, tQNkeyword))
 
     def _createMergedIlluminaFinalReports(self, fileList, snpFile, outFileName,
                                           targetDir=None, sampleList=None,
-                                          normalize=True):
+                                          normalize=True, beadchip=None):
         snpDict = defaultdict(dict)
         if sampleList and (isinstance(sampleList, types.StringType) and
                            os.path.isfile(sampleList)):
@@ -1187,10 +1320,12 @@ does not contain "%s"' % (header, tQNkeyword))
         # sampleList = []
         fileToMergeList = []
         for fileName in fileList:
+            dumpFileName = FileNameGetter(fileName).get('_%d_lrrBaf.pyDump' % int(
+                normalize))
+            dumpFileName = os.path.join(targetDir, os.path.basename(dumpFileName))
             lrrBafFile = Utilities.getFunctionResultWithCache(
-                FileNameGetter(fileName).get('_%d_lrrBaf.pyDump' % int(
-                    normalize)), self._createLrrBafFileFromIlluminaReport,
-                fileName, snpFile, targetDir, sampleList, normalize)
+                dumpFileName, self._createLrrBafFileFromIlluminaReport,
+                fileName, snpFile, targetDir, sampleList, normalize, beadchip)
             fileToMergeList.append(lrrBafFile)
             # currentSnpDict, currentSampleList =
             # Utilities.getFunctionResultWithCache(FileNameGetter(fileName).
@@ -1202,7 +1337,10 @@ does not contain "%s"' % (header, tQNkeyword))
             # sampleList += currentSampleList
         # self.__writeLrrBafFileFromDict(snpDict, snpFile, sampleList,
         # outFileName)
-        self.__mergeLrrBafFiles(fileToMergeList, outFileName)
+        if len(fileToMergeList) == 1:
+            os.system('ln -s %s %s' % (fileToMergeList[0], outFileName))
+        else:
+            self.__mergeLrrBafFiles(fileToMergeList, outFileName)
 
     def __doesDirContainAffymetrixData(self, dirName):
         return glob.glob(os.path.join(dirName, '*.cel')) + \
@@ -1218,7 +1356,11 @@ does not contain "%s"' % (header, tQNkeyword))
     
     def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile,
                 platform, libDir=None, gw6Dir=None, snpFile=None,
-                normalize=True, sampleList=None, targetDir=None):
+                normalize=True, sampleList=None, targetDir=None, beadchip=None):
+        if not gcFile:
+            if platform not in self.__gcFileDict:
+                raise NotImplementedError('SNP array platform "%s" unhandled' % platform)
+            gcFile = self.__gcFileDict[platform]
         if ',' in lrrBafFile:
             lrrBafFile = lrrBafFile.split(',')
         if isinstance(lrrBafFile, types.StringType) and os.path.isfile(lrrBafFile):
@@ -1226,9 +1368,10 @@ does not contain "%s"' % (header, tQNkeyword))
         if isinstance(lrrBafFile, types.ListType):
             outFileName = os.path.join(os.path.dirname(
                 lrrBafFile[0]), 'lrrBaf_%d.txt' % int(normalize))
+            outFileName = os.path.join(targetDir, os.path.basename(outFileName))
             Utilities()._runFunc(self._createMergedIlluminaFinalReports, [
-                lrrBafFile, snpFile, outFileName, targetDir, sampleList, normalize],
-                outFileName)
+                lrrBafFile, snpFile, outFileName, targetDir, sampleList,
+                normalize, beadchip], outFileName)
             lrrBafFile = outFileName
             print 'lrrBafFile = %s' % lrrBafFile
         elif os.path.isdir(lrrBafFile):
@@ -1242,10 +1385,10 @@ does not contain "%s"' % (header, tQNkeyword))
                 fileList = [fileName.strip() for fileName in os.popen(
                     'find %s -follow -name "*FinalReport.txt"' % lrrBafFile)]
                 outFileName = os.path.join(
-                    lrrBafFile, 'lrrBaf_%d.txt' % int(normalize))
+                    targetDir, 'lrrBaf_%d.txt' % int(normalize))
                 Utilities()._runFunc(self._createMergedIlluminaFinalReports, [
                     fileList, snpFile, outFileName, targetDir, sampleList,
-                    normalize], outFileName)
+                    normalize, beadchip], outFileName)
                 lrrBafFile = outFileName
             print 'lrrBafFile = %s' % lrrBafFile
 
@@ -1358,12 +1501,17 @@ class RunSequenza:
         return outFileName
 
     def _getIdvdNameSampleNameAndPatientTypeFromLine(self, splittedLine,
-                                                     getOrigSampleName=False):
-        idvdName, sampleName, seqFile, patientType = splittedLine[:4]
-        originalSampleName = sampleName
-        sampleName2 = seqFile.split('_')[1]
-        if sampleName != sampleName2:
-            sampleName = sampleName2
+                                                     getOrigSampleName=False,
+                                                     header=None):
+        if header == ['idvdName', 'sampleName', 'type']:
+            idvdName, sampleName, patientType = splittedLine
+            originalSampleName = sampleName
+        else:
+            idvdName, sampleName, seqFile, patientType = splittedLine[:4]
+            originalSampleName = sampleName
+            sampleName2 = seqFile.split('_')[1]
+            if sampleName != sampleName2:
+                sampleName = sampleName2
         if getOrigSampleName:
             return idvdName, sampleName, patientType, originalSampleName
         return idvdName, sampleName, patientType
@@ -1375,7 +1523,7 @@ class RunSequenza:
         for splittedLine in fh:
             idvdName, sampleName, patientType = \
                 self._getIdvdNameSampleNameAndPatientTypeFromLine(
-                    splittedLine)
+                    splittedLine, header=header)
             if sampleName not in idvdDict[(idvdName, patientType)]:
                 idvdDict[(idvdName, patientType)].append(sampleName)
         return idvdDict
@@ -1441,7 +1589,7 @@ biocLite('copynumber')")
             r.installPackageFromUrl(
                 'https://cran.r-project.org/web/packages/sequenza/index.html')
 
-    def _runSequenza(self, seqzFile, chrName=None):
+    def _runSequenza(self, seqzFile, chrName=None, hasChrPrefix = False):
         rStr = '''library(sequenza)
 
 seqz.data <- read.seqz("%(seqzFile)s", chr.name = "%(chrName)s")
@@ -1468,9 +1616,12 @@ chromosome.view(mut.tab = test$mutations[[1]], baf.windows = test$BAF[[1]],
             '_raw_%s.png' % chrName), 'seqzFile': seqzFile}
 
         sampleName = os.path.basename(seqzFile).split('.')[0]
+        chrListStr = '1:22'
+        if hasChrPrefix:
+            chrListStr = 'paste("chr", %s, sep="")' % chrListStr
         rStr = '''library(sequenza)
 
-test <- sequenza.extract("%(seqzFile)s", chromosome.list = 1:22)
+test <- sequenza.extract("%(seqzFile)s", chromosome.list = %(chrListStr)s)
 png("%(imgFile)s", width=4000, height=1800, res=300)
 chromosome.view(mut.tab = test$mutations[[1]], baf.windows = test$BAF[[1]],
                  ratio.windows = test$ratio[[1]], min.N.ratio = 1,
@@ -1483,7 +1634,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
 
 ''' % {'chrName': chrName, 'imgFile': FileNameGetter(seqzFile).get('png'),
             'seqzFile': seqzFile, 'sampleName': sampleName,
-            'outputDir': os.path.join(os.path.dirname(seqzFile), sampleName)}
+            'outputDir': os.path.join(os.path.dirname(seqzFile), sampleName),
+            'chrListStr': chrListStr}
         R(self.__binDir, libDir=self.__rLibDir).runCmd(
             rStr, FileNameGetter(seqzFile).get('R'))
 
@@ -1492,13 +1644,16 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         memory = 8
         if self.__memory:
             memory = self.__memory
+        hasChrPrefix = False
+        if self.__getChrList(refFile, True)[0][:3] == 'chr':
+            hasChrPrefix = True
         for chrName in [None]:
             currentOutFileName = seqzFile
             if chrName:
                 currentOutFileName = seqzFile.replace(
                     '.seqz.gz', '_%s.seqz.gz' % chrName)
-            cmd = 'python %s -P seqzR --fileName [input] --chrName %s' % (
-                os.path.abspath(__file__), chrName)
+            cmd = 'python %s -P seqzR --fileName [input] --chrName %s --hasChrPrefix %d' % (
+                os.path.abspath(__file__), chrName, hasChrPrefix)
             if self.__binDir:
                 cmd += ' -b %s' % self.__binDir
             cmdList.append((currentOutFileName, FileNameGetter(
@@ -1593,6 +1748,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
 
     def process(self, sampleFile, dirName, pattern, targetDir, refFile,
                 createPileUp=False, byChr=False):
+        if targetDir:
+            targetDir = os.path.abspath(targetDir)
         Utilities.mySystem('mkdir -p %s' % os.path.join(targetDir, 'tmp'))
         bamDict = Utilities.getFunctionResultWithCache(
             os.path.join(targetDir, 'tmp', '%s_bamDictSequenza.pyDump' % os.path.basename(dirName.rstrip(os.path.sep))),
@@ -3344,7 +3501,7 @@ for (pos in colnames(a)){
                 value = '"%s"' % value
             paramStr += '%s = %s, ' % (varName, value)
         if not isRcode:
-            fileName = '"%s"' % FileNameGetter(fileName).get(outputFormat)
+            fileName = '"%s"' % FileNameGetter(fileName).get(outputFormat, False)
         outputFormatStr = '%s(%s, %s)' % (outputFormat, fileName, paramStr[:-2])
         return outputFormatStr
     
@@ -4060,11 +4217,11 @@ for (obj in allFunctionList){
                                  group2Dict, lohMatrixDict, groupDict,
                                  centromereDict, lohMatrixDict2, lohToPlot,
                                  plotSubgroups=False, chrSizeDict=None):
-        Utilities.saveCache((matrixDict, ploidyDict, targetDir,
-                                 group2Dict, lohMatrixDict, groupDict,
-                                 centromereDict, lohMatrixDict2, lohToPlot,
-                                 plotSubgroups, chrSizeDict), '%s.pyDump' % Utilities.getTimeString())
-        #sys.exit(0)
+        # Utilities.saveCache((matrixDict, ploidyDict, targetDir,
+        # group2Dict, lohMatrixDict, groupDict,
+        # centromereDict, lohMatrixDict2, lohToPlot,
+        # plotSubgroups, chrSizeDict), '%s.pyDump' % Utilities.getTimeString())
+        # sys.exit(0)
         cluster = ThreadManager(_getNbAvailableCpus())
         matrixDict = self.__getSubsetMatrixForSamples(
             matrixDict, [sampleName for sampleName in matrixDict if
@@ -4243,7 +4400,7 @@ for (obj in allFunctionList){
         for splittedLine in fh:
             # print splittedLine
             pos = OrientedPosition(*(splittedLine[1:4] + ['+']))
-            centromerePos = Position(pos.ctgId, *centromereDict[pos.ctgId])
+            centromerePos = Position(pos.ctgId, *centromereDict[pos.ctgId.replace('chr', '')])
             overlapPos = pos.getOverlapPosition(centromerePos)
             if overlapPos:
                 covDiff = Coverage(pos).getCovDiffWithPosition(overlapPos)
@@ -4280,19 +4437,40 @@ for (obj in allFunctionList){
         outFh.write(content.replace('/tmp/', '/'))
         outFh.close()
         
+    def __getAscatFilePatternList(self):
+        return ['*.ASCATprofile.png', '*.ASPCF.png', 'tumorSep*.png', '*.rawprofile.png', '*.sunrise.png', '*.tumour.png', '*.segments.txt', '*.ascatInfo.txt']
+        
+    def __isAscatFolder(self, dirName):
+        for pattern in self.__getAscatFilePatternList():
+            fileList = glob.glob(os.path.join(dirName, pattern))
+            if not fileList:
+                return
+        return True
+        
+    def __createAscatFolder(self, ascatFolder, targetDir):
+        currentTargetDir = os.path.join(targetDir, 'ASCAT')
+        Utilities.mySystem('mkdir -p %s' % currentTargetDir)
+        for pattern in self.__getAscatFilePatternList():
+            cmd = 'mv %s %s' % (os.path.join(ascatFolder, pattern), currentTargetDir)
+            Utilities.mySystem(cmd)
+            
     def __cleanDir(self, tmpDir):
+        for pattern in ['split', 'normalized', '*.PCFed.txt', '*.LogR.txt',
+                        '*.BAF.txt', '*_extracted.txt', 'sample_names.txt',
+                        'tQN_parameters.txt', 'lib', '*.acf.txt', 'SNPpos_*',
+                        'lrrBaf_?.ploidy.txt', 'lrrBaf_?.R', 'lrrBaf_?.txt',
+                        'matrix*', '*_10pc.txt', '*_lrrBaf.txt']:
+            Utilities.mySystem('rm -rf %s' % os.path.join(tmpDir, pattern))
+            
         targetDir = os.path.dirname(tmpDir)
+        if self.__isAscatFolder(tmpDir):
+            self.__createAscatFolder(tmpDir, targetDir)
         for pattern in ['.png', '.jpeg', '.tiff', '.bmp', '.pdf', '.txt',]:
             cmd = 'mv %s %s' % (os.path.join(tmpDir, '*%s' % pattern), targetDir)
             os.system(cmd + ' 2> /dev/null')
         aptOutDir = os.path.join(tmpDir, 'apt_out')
         if os.path.isdir(aptOutDir):
-            currentTargetDir = os.path.join(targetDir, 'ASCAT')
-            Utilities.mySystem('mkdir -p %s' % currentTargetDir)
-            for cmd in ['mv %s %s' % (os.path.join(aptOutDir, '*.png'), currentTargetDir),
-                        'mv %s %s' % (os.path.join(aptOutDir, '*.segments.txt'), currentTargetDir),
-                        'mv %s %s' % (os.path.join(aptOutDir, '*.ascatInfo.txt'), currentTargetDir)]:
-                Utilities.mySystem(cmd)
+            self.__createAscatFolder(aptOutDir, targetDir)
         for fileName in glob.glob(os.path.join(tmpDir, '*')):
             if os.path.isdir(fileName):
                 Utilities.mySystem('mv %s %s' % (fileName, targetDir))
@@ -4311,10 +4489,14 @@ for (obj in allFunctionList){
                 labRow=None, labCol=None, groupLegendPos=None,
                 chrLegendPos=None, fileType=None, keepCentromereData=False,
                 lohToPlot=None, useRelativeCopyNbForClustering = False,
-                keepGenomicPosForHistogram = False, plotSubgroups=False):
+                keepGenomicPosForHistogram = False, plotSubgroups=False,
+                beadchip=None):
+        if not targetDir:
+            targetDir = 'OUT'
         originalTargetDir = targetDir
         keywordDict = {True: 'relCopyNb', False: 'rawCopyNb'}
         if targetDir:
+            targetDir = os.path.abspath(targetDir)
             targetDir = os.path.join(targetDir, 'tmp')
             Utilities.mySystem('mkdir -p %s' % targetDir)
         if sampleList and os.path.isfile(sampleList[0]):
@@ -4346,7 +4528,8 @@ Sequenza results but found "%s"' % ascatFile)
                 paramList = [RunAscat(self.__binDir, self.__rLibDir).process,
                              ascatFile, self.__sampleFile,
                              self.__sampleAliasFile, gcFile, platform,
-                             libDir, gw6Dir, snpFile, normalize, sampleList, targetDir]
+                             libDir, gw6Dir, snpFile, normalize, sampleList,
+                             targetDir, beadchip]
                 ascatFile = Utilities.getFunctionResultWithCache(dumpFileName,
                                                                  *paramList)
                 # raise NotImplementedError('Supported fileType are ("ASCAT",
@@ -4625,7 +4808,8 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
             options.byChr)
     elif options.progName == 'seqzR':
         RunSequenza(options.binDir)._runSequenza(options.fileName,
-                                                 options.chrName)
+                                                 options.chrName,
+                                                 options.hasChrPrefix)
     else:
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,
@@ -4652,7 +4836,8 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                       keepCentromereData=options.keepCentromereData,
                       lohToPlot=options.lohToPlot,
                       useRelativeCopyNbForClustering=options.useRelativeCopyNbForClustering,
-                      keepGenomicPosForHistogram=options.keepGenomicPosForHistogram)
+                      keepGenomicPosForHistogram=options.keepGenomicPosForHistogram,
+                      beadchip = options.beadchip)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all',
                                             CommandParameterType.BOOLEAN,
@@ -4676,6 +4861,8 @@ in binDir so the structure should be binDir/APT/bin'),
                                             helpString='List of segments size \
 in base pairs used to split chromosomes for CNV matrix'),
 
+                           CommandParameter('beadchip', 'string',),
+                           
                            CommandParameter('byChr',
                                             CommandParameterType.BOOLEAN,
                                             helpString='Sequenza parameter \
@@ -4754,6 +4941,9 @@ parameter indicating where http://www.openbioinformatics.org/penncnv/download/\
 gw6.tar.gz has been uncompressed into. This archive contains different \
 programs and files necessary to process Affymetrix SNP array'),
 
+                           CommandParameter('hasChrPrefix',
+                                            CommandParameterType.BOOLEAN),
+                           
                            CommandParameter('hclust', 'string',
                                             helpString='Set hclust value for \
 heatmaps'),

@@ -23,6 +23,7 @@ RUN \
      r-cran-gplots \
      r-cran-rcolorbrewer \
      r-cran-plotrix \
+     r-bioc-limma \
      && rm -rf /var/lib/apt/lists/*
 
 # Define working directory.
