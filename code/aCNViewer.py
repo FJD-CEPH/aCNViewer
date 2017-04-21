@@ -1439,12 +1439,15 @@ class RunSequenza:
             bamFile = bamFile.strip()
             # sampleName, fcName, uplex =
             # IlluminaRun().getSampleNameRunNameAndUplexFromPath(bamFile)
-            sampleName = os.path.basename(bamFile).split('.')[0]
+            partList = os.path.basename(bamFile).split('.')
+            sampleName = partList[0]
             currentTargetDir = os.path.join(targetDir, sampleName)
             Utilities.mySystem('mkdir -p %s' % currentTargetDir)
             targetFileName = os.path.join(currentTargetDir, os.path.basename(bamFile))
             os.system('ln -s %s %s' % (FileNameGetter(bamFile).get('ba*'), currentTargetDir))
             bamDict[sampleName] = targetFileName
+            if len(partList) > 2:
+                bamDict['.'.join(partList[:-1])] = targetFileName
         return bamDict
 
     def __appendMpileUpCreation(self, bamFile, refFile, cmdList):
@@ -1765,6 +1768,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         gcFile = self.__appendGcFileCreation(refFile, cmdList)
         for tumorSample, normalSample in sampleList:
             print 'Processing sample pair (%s, %s)' % (tumorSample, normalSample)
+            print bamDict
             tumorBam = bamDict[tumorSample]
             normalBam = bamDict[normalSample]
             # self.__appendMpileUpCreation(tumorBam, refFile, cmdList)

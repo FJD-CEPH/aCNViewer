@@ -71,9 +71,8 @@ Let's call `aCNViewer_DATA` the location where the test data set [aCNViewer_DATA
 
 ##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
 
-
-
-<p style="background-color:lightblue;">`python aCNViewer/code/aCNViewer.py -f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`</p>
+<p style="background-color:lightblue;">Docker command:</p>
+`python aCNViewer/code/aCNViewer.py -f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --gcFile aCNViewer_DATA/snpArrays250k_sty/GC_Affy250k.txt --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
 
 If ASCAT is not installed and if you want to install it into a custom folder, please add the following option to the previous command line: `--rLibDir RLIB`
 
