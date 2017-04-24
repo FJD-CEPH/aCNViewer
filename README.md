@@ -66,7 +66,7 @@ aCNViewer can also be installed from its source by:
 Let's call:
 - `aCNViewer_DATA` the location where the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz) has been uncompressed into
 - `BIN_DIR` the folder containing all third-party softwares located in `aCNViewer_DATA/bin`.
-- <a id="dockerOrPython">`DOCKER_OR_PYTHON`</a> refers to the fact that `docker run fjdceph/acnviewer` or `python aCNViewer/code/aCNViewer.py` can be used as a prefix to run aCNViewer.
+- <a id="dockerOrPython">`DOCKER_OR_PYTHON`</a> refers to the fact that `docker run fjdceph/acnviewer` or `python aCNViewer/code/aCNViewer.py` can be used as a prefix to run aCNViewer depending on the installation method.
 
 
 ### Requirements:
@@ -80,7 +80,7 @@ Download the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/p
 
 ##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
 
-[DOCKER_OR_PYTHON](#dockerOrPython) ` -f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b aCNViewer_DATA/bin/ --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
+<a href="#chrSize">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b aCNViewer_DATA/bin/ --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
 
 If ASCAT is not installed (i.e you are not using the docker application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
 
@@ -89,7 +89,7 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-`python aCNViewer.py -f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#chrSize">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --gcFile ASCAT_GC_FILE --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
