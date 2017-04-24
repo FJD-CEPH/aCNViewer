@@ -41,6 +41,12 @@ RUN \
   tar xzf aCNViewer_DATA.tar.gz
 
 RUN \
+  wget -O samtools.tar.bz2 https://sourceforge.net/projects/samtools/files/latest/download?source=files
+
+RUN \
+  cd aCNViewer_DATA/bin && tar xjf ../../samtools.tar.bz2 && make
+
+RUN \
   python aCNViewer/code/aCNViewer.py -P installDependencies
 
 # Define default command.

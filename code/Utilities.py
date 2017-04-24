@@ -294,6 +294,7 @@ class Utilities:
             outFh = open(scriptName, 'w')
             outFh.write('#!/bin/bash\n' + cmd)
             outFh.close()
+            del outFh
             os.system('chmod +x %s' % scriptName)
             cmd = scriptName
             if not os.getenv('SILENT'):

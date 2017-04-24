@@ -1404,12 +1404,12 @@ does not contain "%s"' % (header, tQNkeyword))
 
 
 class RunSequenza:
-
     def __init__(self, binDir=None, rLibDir=None, nbCpus=None, memory=None):
         self.__binDir = binDir
         self.__rLibDir = rLibDir
         if not nbCpus:
-            nbCpus = 1
+            nbCpus = _getNbAvailableCpus()
+            print 'Using %d cores' % nbCpus
         self.__nbCpus = nbCpus
         self.__binStr = ''
         if binDir and os.path.isfile(os.path.join(binDir, 'python')):
@@ -1421,8 +1421,13 @@ class RunSequenza:
         optionStr = ''
         if chrName:
             optionStr = '-r %s' % chrName
-        cmd = '%s mpileup -f %s -Q 20 %s %s | gzip > %s' % (os.path.join(
-            self.__binDir, 'samtools'), refFile, optionStr, bamFile,
+        samtoolsBin = os.path.join(self.__binDir, 'samtools')
+        if not os.path.isfile(samtoolsBin):
+            samtoolsBin = glob.glob(os.path.join(self.__binDir, 'samtools*', 'samtools'))
+            if len(samtoolsBin) != 1:
+                raise NotImplementedError('Samtools is missing in binDir "%s"' % self.__binDir)
+            samtoolsBin = samtoolsBin[0]
+        cmd = '%s mpileup -f %s -Q 20 %s %s | gzip > %s' % (samtoolsBin, refFile, optionStr, bamFile,
             mpileUpFile)
         return cmd
 
@@ -1648,7 +1653,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         if self.__memory:
             memory = self.__memory
         hasChrPrefix = False
-        if self.__getChrList(refFile, True)[0][:3] == 'chr':
+        if str(self.__getChrList(refFile, True)[0])[:3] == 'chr':
             hasChrPrefix = True
         for chrName in [None]:
             currentOutFileName = seqzFile
@@ -1690,9 +1695,10 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             progName = 'pileup2seqz'
             optionStr = ''
         scriptFile = FileNameGetter(outFileName).get('sh')
-        cmd = '%spython %s %s -n %s -t %s -gc %s %s | gzip -c > %s' % (
+        cmd = '%spython %s %s -n %s -t %s -gc %s %s | gzip -c > %s 2> %s' % (
             self.__binStr, self.__getSequenzaUtils(), progName, normalBam,
-            tumorBam, gcFile, optionStr, outFileName)
+            tumorBam, gcFile, optionStr, outFileName,
+            FileNameGetter(outFileName).get('err'))
         Utilities.mySystem(cmd, scriptFile)
         #if createPileUp:
             #Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
@@ -1711,6 +1717,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         return chrList
 
     def __mergeSeqzFilesAndClean(self, outFileName, refFile):
+        
         MergeAnnotationFiles().process(outFileName.replace(
             '.seqz.gz', '_%s.seqz.gz'), outFileName, refFile, True)
         #Utilities.mySystem('rm %s' %
@@ -1777,10 +1784,10 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
                 tumorBam, normalBam, refFile, gcFile, cmdList, targetDir,
                 createPileUp, byChr)
             self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
-        print '#' * 100
-        for i,o,cmd in cmdList:
-            print i,o,cmd.cmd, cmd.nbCpus
-        print '#' * 40
+        #print '#' * 100
+        #for i,o,cmd in cmdList:
+            #print i,o,cmd.cmd, cmd.nbCpus
+        #print '#' * 40
         if not ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
                 cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus)):
             cmdList = []
@@ -1797,7 +1804,7 @@ class aCNViewer:
     def __init__(self, windowSize, percent, binDir=None, useShape=False,
                  sampleFile=None, sampleAliasFile=None, groupColumnName=None,
                  rLibDir=None, rColorFile=None, nbPermutations=None,
-                 outputFormat=None):
+                 outputFormat=None, nbCpus=None, memory=None):
         self.__windowSize = windowSize
         self.__percent = percent
         self.__binDir = binDir
@@ -1823,6 +1830,8 @@ class aCNViewer:
         self.__nbPermutations = nbPermutations
         self.__setColorDictFromFile(rColorFile)
         self.__checkAndSetOutputFormat(outputFormat)
+        self.__nbCpus = nbCpus
+        self.__memory = memory
         
     def __updateOutputParamDict(self, outputFormat, paramDict):
         if outputFormat in ['tiff', 'tif']:
@@ -4483,6 +4492,20 @@ for (obj in allFunctionList){
         for cmd in ['rm -rf %s' % tmpDir]:
             Utilities.mySystem(cmd)
     
+    def __getSequenzaFileTypeFromDir(self, dirName, pattern):
+        fileType = None
+        for fileName in os.popen('find %s -follow -name "*_segments.txt"' %
+                                 dirName):
+            fileType = 'txt'
+            break
+        for fileName in os.popen('find %s -follow -name "*%s"' %
+                                 (dirName, pattern)):
+            fileType = 'bam'
+            break
+        print 'find %s -follow -name "*_segments.txt"' % dirName
+        print 'find %s -follow -name "*%s"' % (dirName, pattern)
+        return fileType
+    
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
                 centromereFile=None, keyword=None, defaultGroupValue=None,
@@ -4494,7 +4517,8 @@ for (obj in allFunctionList){
                 chrLegendPos=None, fileType=None, keepCentromereData=False,
                 lohToPlot=None, useRelativeCopyNbForClustering = False,
                 keepGenomicPosForHistogram = False, plotSubgroups=False,
-                beadchip=None):
+                beadchip=None, refFileName=None, createMpileUp=True,
+                byChr=True, pattern=None, samplePairFile=None):
         if not targetDir:
             targetDir = 'OUT'
         originalTargetDir = targetDir
@@ -4519,6 +4543,25 @@ for (obj in allFunctionList){
                     raise NotImplementedError(
                         'Option "-f" should be a directory when analyzing \
 Sequenza results but found "%s"' % ascatFile)
+                fileType = self.__getSequenzaFileTypeFromDir(ascatFile, pattern)
+                if fileType == 'bam':
+                    if not refFileName:
+                        raise NotImplementedError('When analyzing bams, \
+refFileName should be set (option "-r")')
+                    if not samplePairFile:
+                        raise NotImplementedError('When analyzing bams, \
+samplePairFile should be set (option "--samplePairFile")')
+                    currentTargetDir = os.path.join(targetDir, 'sequenza')
+                    Utilities.mySystem('mkdir -p %s' % currentTargetDir)
+                    RunSequenza(self.__binDir, nbCpus=self.__nbCpus,
+                                memory=self.__memory).process(samplePairFile,
+                                                   ascatFile,
+                                                   pattern,
+                                                   currentTargetDir,
+                                                   refFileName,
+                                                   createMpileUp,
+                                                   byChr)
+                    ascatFile = currentTargetDir
                 sequenzaTargetDir = targetDir
                 if targetDir:
                     sequenzaTargetDir = os.path.join(targetDir, 'sequenza2ascat')
@@ -4819,7 +4862,7 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                   options.useShape, options.sampleFile,
                   options.sampleAliasFile, options.groupColumnName,
                   options.rLibDir, options.rColorFile, options.nbPermutations,
-                  options.outputFormat).\
+                  options.outputFormat, options.nbCpus, options.memory).\
         process(
                       options.fileName, options.chrFile, options.targetDir,
                       options.ploidyFile, options.histogram, options.merge,
@@ -4839,9 +4882,15 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                       fileType=options.fileType,
                       keepCentromereData=options.keepCentromereData,
                       lohToPlot=options.lohToPlot,
-                      useRelativeCopyNbForClustering=options.useRelativeCopyNbForClustering,
-                      keepGenomicPosForHistogram=options.keepGenomicPosForHistogram,
-                      beadchip = options.beadchip)
+                      useRelativeCopyNbForClustering=\
+                      options.useRelativeCopyNbForClustering,
+                      keepGenomicPosForHistogram=\
+                      options.keepGenomicPosForHistogram,
+                      beadchip = options.beadchip,
+                      refFileName=options.refFileName,
+                      createMpileUp=options.createMpileUp,
+                      byChr=options.byChr, pattern=options.pattern,
+                      samplePairFile=options.samplePairFile)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all',
                                             CommandParameterType.BOOLEAN,
@@ -4869,8 +4918,10 @@ in base pairs used to split chromosomes for CNV matrix'),
                            
                            CommandParameter('byChr',
                                             CommandParameterType.BOOLEAN,
+                                            defaultValue=True,
                                             helpString='Sequenza parameter \
-indicating wheter seqz file should be created by chromosome or not'),
+indicating wheter seqz file should be created by chromosome or not (default is \
+True)'),
 
                            CommandParameter('c', 'chrFile', 'string',
                                             helpString='A tab-delimited file \
@@ -4903,8 +4954,10 @@ indicating the name of the chromosome to process'),
 
                            CommandParameter('createMpileUp',
                                             CommandParameterType.BOOLEAN,
+                                            defaultValue=True,
                                             helpString='Sequenza parameter \
-used to indicate whether an intermediary mpileup file should be created'),
+used to indicate whether an intermediary mpileup file should be created \
+(default set to True)'),
 
                            CommandParameter('d', 'dendrogram',
                                             CommandParameterType.BOOLEAN,
@@ -5096,6 +5149,9 @@ with clinical information with sample name "Sample" column'),
                            CommandParameter('sampleList',
                                             CommandParameterType.COMMA_SEP),
 
+                           CommandParameter('samplePairFile',
+                                            'string'),
+                           
                            CommandParameter('t', 'targetDir', 'string',
                                             helpString='Set the location of \
 the output folder'),
