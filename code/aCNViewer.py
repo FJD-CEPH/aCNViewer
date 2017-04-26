@@ -299,11 +299,11 @@ class RunTQN:
             fh, sampleName, header, outFileName = res
             self.__checkNormalizedFile(outFileName, finalReportFile)
             cmdList = [(finalReportFile, splitFile,
-                        'python %s -p formatTQN -f [input] -t %s' %
-                        (os.path.abspath(__file__), targetDir)),
+                        '%s %s -p formatTQN -f [input] -t %s' %
+                        (sys.executable, os.path.abspath(__file__), targetDir)),
                        (splitFile, finalReportFile + '_tQN_norm',
-                        Cmd('python %s -p tQN -f %s -t %s -b %s' %
-                            (os.path.abspath(__file__), outFileName,
+                        Cmd('%s %s -p tQN -f %s -t %s -b %s' %
+                            (sys.executable, os.path.abspath(__file__), outFileName,
                              targetDir, self.__binDir), memory=8))]
             ProcessFileFromCluster()._runCmdList(cmdList, finalReportFile,
                                                  cluster)
@@ -1458,8 +1458,8 @@ class RunSequenza:
     def __appendMpileUpCreation(self, bamFile, refFile, cmdList):
         mpileUpFile = FileNameGetter(bamFile).get('pileup.gz')
         cmdList.append((bamFile, mpileUpFile, Cmd(
-            'python %s -P mpileUp -f %s -o %s -r %s' %
-            (os.path.abspath(__file__), bamFile, mpileUpFile, refFile))))
+            '%s %s -P mpileUp -f %s -o %s -r %s' %
+            (sys.executable, os.path.abspath(__file__), bamFile, mpileUpFile, refFile))))
         return mpileUpFile
 
     def __getSequenzaUtils(self):
@@ -1472,8 +1472,8 @@ class RunSequenza:
         raise NotImplementedError('sequenza does not seem to be installed')
 
     def _createGcFile(self, refFile):
-        cmd = '%spython %s GC-windows -w 50 %s | gzip > %s' % (
-            self.__binStr, self.__getSequenzaUtils(), refFile,
+        cmd = '%s %s GC-windows -w 50 %s | gzip > %s' % (
+            sys.executable, self.__getSequenzaUtils(), refFile,
             self.__getGcFileFromFasta(refFile))
         Utilities.mySystem(cmd)
 
@@ -1483,7 +1483,7 @@ class RunSequenza:
     def __appendGcFileCreation(self, refFile, cmdList):
         gcFile = self.__getGcFileFromFasta(refFile)
         cmdList.append((refFile, gcFile, Cmd(
-            'python %s -P gc -r %s' % (os.path.abspath(__file__), refFile))))
+            '%s %s -P gc -r %s' % (sys.executable, os.path.abspath(__file__), refFile))))
         return gcFile
 
     def __appendSeqzFileCreation(self, tumorBam, normalBam, refFile, gcFile,
@@ -1491,8 +1491,9 @@ class RunSequenza:
         outFileName = os.path.join(targetDir, 'tmp', '%s_%s.seqz.gz' % (
             os.path.basename(tumorBam).split('.')[0],
             os.path.basename(normalBam).split('.')[0]))
-        cmd = 'python %s -P seqz --normalBam %s --tumorBam %s -r %s --gcFile %s\
- --targetDir %s --createMpileUp %d --byChr %d' % (os.path.abspath(__file__),
+        cmd = '%s %s -P seqz --normalBam %s --tumorBam %s -r %s --gcFile %s\
+ --targetDir %s --createMpileUp %d --byChr %d' % (sys.executable,
+                                                  os.path.abspath(__file__),
                                                   normalBam, tumorBam, refFile,
                                                   gcFile, outFileName,
                                                   int(createPileUp),
@@ -1572,11 +1573,6 @@ class RunSequenza:
         Utilities.mySystem(cmd)
         return outFileName
 
-    def __appendAscatFileCreation(self, dirName, cmdList):
-        cmd = 'python %s -P createAscatFile -d %s' % (
-            os.path.abspath(__file__), dirName)
-        cmdList.append((dirName, os.path.join(dirName, 'ascat'), cmd))
-
     def _installSequenzaIfNecessary(self):
         r = R(self.__binDir, libDir=self.__rLibDir)
         if r.isPackageInstalled('sequenza'):
@@ -1642,7 +1638,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
 
 ''' % {'chrName': chrName, 'imgFile': FileNameGetter(seqzFile).get('png'),
             'seqzFile': seqzFile, 'sampleName': sampleName,
-            'outputDir': os.path.join(os.path.dirname(seqzFile), sampleName),
+            'outputDir': os.path.join(os.path.dirname(seqzFile), sampleName + \
+                                      '_sequenza'),
             'chrListStr': chrListStr}
         R(self.__binDir, libDir=self.__rLibDir).runCmd(
             rStr, FileNameGetter(seqzFile).get('R'))
@@ -1660,8 +1657,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             if chrName:
                 currentOutFileName = seqzFile.replace(
                     '.seqz.gz', '_%s.seqz.gz' % chrName)
-            cmd = 'python %s -P seqzR --fileName [input] --chrName %s --hasChrPrefix %d' % (
-                os.path.abspath(__file__), chrName, hasChrPrefix)
+            cmd = '%s %s -P seqzR --fileName [input] --chrName %s --hasChrPrefix %d' % (
+                sys.executable, os.path.abspath(__file__), chrName, hasChrPrefix)
             if self.__binDir:
                 cmd += ' -b %s' % self.__binDir
             cmdList.append((currentOutFileName, FileNameGetter(
@@ -1695,11 +1692,12 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             progName = 'pileup2seqz'
             optionStr = ''
         scriptFile = FileNameGetter(outFileName).get('sh')
-        cmd = '%spython %s %s -n %s -t %s -gc %s %s | gzip -c > %s 2> %s' % (
-            self.__binStr, self.__getSequenzaUtils(), progName, normalBam,
+        cmd = '%s %s %s -n %s -t %s -gc %s %s | gzip -c > %s 2> %s' % (
+            sys.executable, self.__getSequenzaUtils(), progName, normalBam,
             tumorBam, gcFile, optionStr, outFileName,
             FileNameGetter(outFileName).get('err'))
-        Utilities.mySystem(cmd, scriptFile)
+        #Utilities.mySystem(cmd, scriptFile)
+        Utilities.mySystem(cmd)
         #if createPileUp:
             #Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
 
@@ -1716,8 +1714,15 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         chrList.reverse()
         return chrList
 
-    def __mergeSeqzFilesAndClean(self, outFileName, refFile):
-        
+    def __mergeSeqzFilesAndClean(self, outFileName, refFile, chrList):
+        missingFile = False
+        for chrName in chrList:
+            currentChrFile = outFileName.replace('.seqz.gz', '_%s.seqz.gz' % chrName)
+            if not os.path.isfile(currentChrFile) or not os.path.isfile(currentChrFile + '_done'):
+                missingFile = True
+                print 'Missing file "%s"' % currentChrFile
+        if missingFile:
+            raise NotImplementedError
         MergeAnnotationFiles().process(outFileName.replace(
             '.seqz.gz', '_%s.seqz.gz'), outFileName, refFile, True)
         #Utilities.mySystem('rm %s' %
@@ -1739,7 +1744,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         cluster.wait()
         if byChr:
             Utilities()._runFunc(self.__mergeSeqzFilesAndClean,
-                                 [outFileName, refFile], outFileName)
+                                 [outFileName, refFile, chrList], outFileName)
 
     def __getTumorAndNormalSampleListFromFile(self, sampleFile):
         idvdDict = self._getIdvdToPairDictFromFile(sampleFile)
@@ -1788,12 +1793,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         #for i,o,cmd in cmdList:
             #print i,o,cmd.cmd, cmd.nbCpus
         #print '#' * 40
-        if not ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-                cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus)):
-            cmdList = []
-            self.__appendAscatFileCreation(targetDir, cmdList)
-            ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-                cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus))
+        return ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
+            cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus))
 
 
 class aCNViewer:
@@ -1838,6 +1839,7 @@ class aCNViewer:
             paramDict['compression'] = 'lzw'
         
     def __checkAndSetOutputFormat(self, outputFormat):
+        self.__outputFormat = outputFormat
         defaultOutputFormatDict = {'hist': ['png', {'width': 4000, 'height': 1800, 'res': 300}],
                             'dend': ['png', {'width': 4000, 'height': 2200, 'res': 300}],
                             'heat': ['pdf', {'width': 10, 'height': 12}]}
@@ -1945,6 +1947,7 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
 
     def __setColorDictFromFile(self, rColorFile):
         self.__rColorDict = {}
+        self.__rColorFile = rColorFile
         if not rColorFile:
             return
         fh = open(rColorFile)
@@ -1965,7 +1968,7 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
             if not baseNb:
                 continue
             cmdList = []
-            cmd = 'python %s -f %s --ploidyFile %s -w %d -c %s --dendrogram \
+            cmd = '%s %s -f %s --ploidyFile %s -w %d -c %s --dendrogram \
 %d --histogram %d -t %s -u %d -m %d --plotAll %d'
             if centromereFile:
                 cmd += ' --centromereFile %s' % centromereFile
@@ -1977,14 +1980,14 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
                             os.path.join(targetDir,
                                          os.path.basename(ascatFile) +
                                          '_%db' % baseNb),
-                            Cmd(cmd % (os.path.abspath(__file__), ascatFile,
+                            Cmd(cmd % (sys.executable, os.path.abspath(__file__), ascatFile,
                                        ploidyFile, baseNb, chrFile, dendrogram,
                                        histogram, targetDir, self.__useShape,
                                        merge, plotAll), nbCpus=1, memory=40)))
             ProcessFileFromCluster()._runCmdList(cmdList, ascatFile, cluster)
         for percent in percentList:
             cmdList = []
-            cmd = 'python %s -f %s --ploidyFile %s -p %f -c %s --dendrogram %d\
+            cmd = '%s %s -f %s --ploidyFile %s -p %f -c %s --dendrogram %d\
  --histogram %d -t %s -u %d -m %d --plotAll %d'
             if centromereFile:
                 cmd += ' --centromereFile %s' % centromereFile
@@ -1996,7 +1999,8 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
                             os.path.join(targetDir,
                                          os.path.basename(ascatFile) +
                                          '_%fp' % percent),
-                            Cmd(cmd % (os.path.abspath(__file__),
+                            Cmd(cmd % (sys.executable,
+                                       os.path.abspath(__file__),
                                        ascatFile, ploidyFile, percent, chrFile,
                                        dendrogram, histogram, targetDir,
                                        self.__useShape, merge, plotAll),
@@ -4467,6 +4471,16 @@ for (obj in allFunctionList){
             cmd = 'mv %s %s' % (os.path.join(ascatFolder, pattern), currentTargetDir)
             Utilities.mySystem(cmd)
             
+    def __cleanSequenzaFolder(self, dirName):
+        sequenzaFolder = os.path.join(dirName, 'sequenza')
+        if not os.path.isdir(sequenzaFolder):
+            return
+        cmd = 'mv %s %s' % (os.path.join(sequenzaFolder, 'tmp', '*_sequenza'),
+                            sequenzaFolder)
+        Utilities.mySystem(cmd)
+        Utilities.mySystem('rm -rf %s' % os.path.join(sequenzaFolder, 'tmp'))
+        Utilities.mySystem('rm -rf %s' % os.path.join(dirName, 'sequenza2ascat'))
+            
     def __cleanDir(self, tmpDir):
         for pattern in ['split', 'normalized', '*.PCFed.txt', '*.LogR.txt',
                         '*.BAF.txt', '*_extracted.txt', 'sample_names.txt',
@@ -4474,8 +4488,8 @@ for (obj in allFunctionList){
                         'lrrBaf_?.ploidy.txt', 'lrrBaf_?.R', 'lrrBaf_?.txt',
                         'matrix*', '*_10pc.txt', '*_lrrBaf.txt']:
             Utilities.mySystem('rm -rf %s' % os.path.join(tmpDir, pattern))
-            
         targetDir = os.path.dirname(tmpDir)
+        self.__cleanSequenzaFolder(tmpDir)
         if self.__isAscatFolder(tmpDir):
             self.__createAscatFolder(tmpDir, targetDir)
         for pattern in ['.png', '.jpeg', '.tiff', '.bmp', '.pdf', '.txt',]:
@@ -4506,9 +4520,107 @@ for (obj in allFunctionList){
         print 'find %s -follow -name "*%s"' % (dirName, pattern)
         return fileType
     
+    def __submitCurrentAnalysisToCluster(self, ascatFile, chrFile, targetDir,
+                                         ploidyFile, histogram, merge,
+                                         dendrogram, plotAll, centromereFile,
+                                         mergeCentromereSegments, gcFile,
+                                         platform, libDir, gw6Dir, snpFile,
+                                         normalize, sampleList, heatmap, hclust,
+                                         height, width, cexRow, cexCol, margins,
+                                         labRow, labCol, groupLegendPos,
+                                         chrLegendPos,
+                                         keepCentromereData, lohToPlot,
+                                         useRelativeCopyNbForClustering,
+                                         keepGenomicPosForHistogram,
+                                         plotSubgroups, beadchip, refFileName,
+                                         createMpileUp, byChr, pattern,
+                                         samplePairFile):
+        cmd = '%s %s --fileType Sequenza -b %s -f %s -t %s -c %s -C %s -r %s \
+--samplePairFile %s -u %d --histogram %d -m %d --dendrogram %d --plotAll %d \
+-M %d -N %d --heatmap %d --labRow %d --labCol %d --keepCentromereData %d \
+useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
+--plotSubgroups %d --createMpileUp %d --byChr %d' % (sys.executable,
+                               os.path.abspath(__file__), self.__binDir,
+                               ascatFile, os.path.dirname(targetDir), chrFile,
+                               centromereFile, refFileName, samplePairFile,
+                               bool(self.__useShape), bool(histogram), bool(merge),
+                               bool(dendrogram), bool(plotAll),
+                               bool(mergeCentromereSegments), bool(normalize),
+                               bool(heatmap), bool(labRow), bool(labCol),
+                               bool(keepCentromereData),
+                               bool(useRelativeCopyNbForClustering),
+                               bool(keepGenomicPosForHistogram),
+                               bool(plotSubgroups), bool(createMpileUp),
+                               bool(byChr))
+        if self.__windowSize:
+            cmd += ' -w %d' % self.__windowSize
+        elif self.__percent:
+            cmd += ' -p %f' % self.__percent
+        if self.__sampleFile:
+            cmd += ' --sampleFile %s' % self.__sampleFile
+        if self.__sampleAliasFile:
+            cmd += ' --sampleAliasFile %s' % self.__sampleAliasFile
+        if self.__groupColumnName:
+            cmd += ' -G %s' % self.__groupColumnName
+        if self.__rLibDir:
+            cmd += ' --rLibDir %s' % self.__rLibDir
+        if self.__rColorFile:
+            cmd += ' --rColorFile %s' % self.__rColorFile
+        if self.__nbPermutations:
+            cmd += ' --nbPermutations %d' % self.__nbPermutations
+        if self.__outputFormat:
+            cmd += ' -O "%s"' % self.__outputFormat
+        if self.__nbCpus:
+            cmd += ' -n %d' % options.nbCpus
+        if self.__memory:
+            cmd += ' --memory %d' % self.__memory
+        if ploidyFile:
+            cmd += ' --ploidyFile %s' % ploidyFile
+        if gcFile:
+            cmd += ' --gcFile %s' % gcFile
+        if platform:
+            cmd += ' --platform %s' % platform
+        if libDir:
+            cmd += ' -l %s' % libDir
+        if gw6Dir:
+            cmd += ' --gw6Dir %s' % gw6Dir
+        if snpFile:
+            cmd += ' --probeFile %s' % snpFile
+        if sampleList:
+            cmd += ' --sampleList %s' % (','.join(sampleList))
+        if hclust:
+            cmd += ' --hclust %s' % hclust
+        if height:
+            cmd += ' --height %d' % height
+        if width:
+            cmd += ' --width %d' % width
+        if cexRow:
+            cmd += ' --cexRow %f' % cexRow
+        if cexCol: 
+            cmd += ' --cexCol %f' % cexCol
+        if margins:
+            cmd += ' --margins %s' % (','.join(margins))
+        if groupLegendPos:
+            cmd += ' --groupLegendPos %s' % groupLegendPos
+        if chrLegendPos:
+            cmd += ' --chrLegendPos %s' % chrLegendPos
+        if lohToPlot:
+            cmd += ' --lohToPlot %s' % lohToPlot
+        if beadchip:
+            cmd += ' --beadchip %s' % beadchip
+        if refFileName:
+            cmd += ' -r %s' % refFileName
+        if pattern:
+            cmd += ' --pattern %s' % pattern
+        if samplePairFile:
+            cmd += ' --samplePairFile %s' % samplePairFile
+        cmdList = [(chrFile, os.path.join(os.path.dirname(targetDir), 'aCNViewer'),
+                    Cmd('unset PYTHONPATH && ' + cmd, memory = 10))]
+        ProcessFileFromCluster()._runCmdList(cmdList, chrFile, guessHpc())
+    
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
-                centromereFile=None, keyword=None, defaultGroupValue=None,
+                centromereFile=None, defaultGroupValue=None,
                 mergeCentromereSegments=None, gcFile=None, platform=None,
                 libDir=None, gw6Dir=None, snpFile=None, normalize=True,
                 sampleList=None, heatmap=False, hclust=None, height=None,
@@ -4553,7 +4665,7 @@ refFileName should be set (option "-r")')
 samplePairFile should be set (option "--samplePairFile")')
                     currentTargetDir = os.path.join(targetDir, 'sequenza')
                     Utilities.mySystem('mkdir -p %s' % currentTargetDir)
-                    RunSequenza(self.__binDir, nbCpus=self.__nbCpus,
+                    jobDict = RunSequenza(self.__binDir, nbCpus=self.__nbCpus,
                                 memory=self.__memory).process(samplePairFile,
                                                    ascatFile,
                                                    pattern,
@@ -4561,6 +4673,26 @@ samplePairFile should be set (option "--samplePairFile")')
                                                    refFileName,
                                                    createMpileUp,
                                                    byChr)
+                    if not isinstance(guessHpc(), ThreadManager):
+                        if jobDict:
+                            print '\n'
+                            print '#' * 100
+                            print 'You have submitted jobs to a cluster. Please re-run the same command when all the submitted jobs are finished.'
+                            print '#' * 100
+                            sys.exit(0)
+                        else:
+                            self.__submitCurrentAnalysisToCluster(ascatFile, chrFile, targetDir, ploidyFile,
+                histogram, merge, dendrogram, plotAll, centromereFile,
+                mergeCentromereSegments, gcFile, platform, libDir, gw6Dir, snpFile, normalize,
+                sampleList, heatmap, hclust, height,
+                width, cexRow, cexCol, margins,
+                labRow, labCol, groupLegendPos,
+                chrLegendPos, keepCentromereData,
+                lohToPlot, useRelativeCopyNbForClustering,
+                keepGenomicPosForHistogram, plotSubgroups,
+                beadchip, refFileName, createMpileUp,
+                byChr, pattern, samplePairFile)
+                            return
                     ascatFile = currentTargetDir
                 sequenzaTargetDir = targetDir
                 if targetDir:

@@ -561,6 +561,12 @@ class HpcBase:
                 'CREATE_JOBS').split(',')
             self.__nbParts = int(self.__nbParts)
 
+    def _extractItemFromStr(self, jobStr, item):
+        idx = jobStr.find(item)
+        if idx == -1:
+            raise NotImplementedError('Can not find "%s" file in [%s]' % (item, jobStr))
+        return jobStr[idx:].split('=')[1].split()[0]
+            
     def _addOptionStrToCmd(self, cmd, optionList):
         for optionName, optionValue in optionList:
             cmd += ' %s %s' % (optionName, optionValue)
@@ -600,9 +606,9 @@ file in %s' % (self.__nbParts, len(self._jobList), nbJobs, self.__targetDir)
 
     def getOutErrFileForJobId(self, jobId):
         jobStr = self.getJobDetails(jobId)
-        return self._extractOutErrFileFromJobStr(jobStr)
+        return self._extractOutErrFileFromJobStr(jobStr, jobId)
         
-    def _extractOutErrFileFromJobStr(self, jobStr):
+    def _extractOutErrFileFromJobStr(self, jobStr, jobId):
         raise NotImplementedError
     
     def isMasterNode(self):
@@ -991,15 +997,9 @@ class SLURMcluster(HpcBase):
     _endJobIdStr = '\n'
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
-
-    def __extractItemFromStr(self, jobStr, item):
-        idx = jobStr.find(item)
-        if idx == -1:
-            raise NotImplementedError('Can not find "%s" file in [%s]' % (item, jobStr))
-        return jobStr[idx:].split('=')[-1].split()[0]
     
-    def _extractOutErrFileFromJobStr(self, jobStr):
-        return self.__extractItemFromStr(jobStr, 'StdOut='), self.__extractItemFromStr(jobStr, 'StdErr=')
+    def _extractOutErrFileFromJobStr(self, jobStr, jobId):
+        return self._extractItemFromStr(jobStr, 'StdOut='), self._extractItemFromStr(jobStr, 'StdErr=')
     
     def getJobDetails(self, jobId):
         fh = os.popen('sjinfo %d' % jobId)
@@ -1122,6 +1122,13 @@ class SLURMCCRTcluster(HpcBase):
     _endJobIdStr = '\n'
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
+    
+    def _extractOutErrFileFromJobStr(self, jobStr, jobId):
+        fh = os.popen('ccc_mstat -r %d' % jobId)
+        content = fh.read()
+        #print [content]
+        #print self._extractItemFromStr(content, 'StdOut='), self._extractItemFromStr(content, 'StdErr=')
+        return self._extractItemFromStr(content, 'StdOut='), self._extractItemFromStr(content, 'StdErr=')
     
     def getJobDetails(self, jobId):
         fh = os.popen('ccc_mstat -b %d' % jobId)
@@ -1287,7 +1294,8 @@ cpus' % nbCpus
         print 'Machines', machineList
         return RemoteThreadManager(machineList)
     for cmd, clusterClass in cmdAndClusterTypeList:
-        fh = os.popen('%s -h 2> /dev/null' % cmd)
+        #fh = os.popen('%s -h 2> /dev/null' % cmd)
+        fh = os.popen('which %s 2> /dev/null' % cmd)
         if fh.read():
             if clusterClass == SGEcluster and useFromMasterNode and not __isMasterNode():
                 return ThreadManager(nbCpus, *args)
