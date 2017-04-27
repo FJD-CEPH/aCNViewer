@@ -48,7 +48,7 @@ aCNViewer can also be installed from its source by:
 
 * [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into `BIN_DIR`) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
-* Python with version &ge; 2.5
+* Python with version &ge; 2.7
 
 
 ## Overview:
@@ -78,11 +78,11 @@ Download the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/p
 
 #### Affymetrix
 
-##### TestAffy: generate a quantitative stacked histogram from CEL files with a window size of 2Mbp
+##### TestAffyCel: generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b aCNViewer_DATA/bin/ --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
 
-If ASCAT is not installed (i.e you are not using the docker application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
+If ASCAT is not installed (i.e you are not using the [docker](https://hub.docker.com/r/fjdceph/acnviewer/) application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
 
 The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also be found in `aCNViewer_DATA/snpArrays250k_sty/expectedResults/test1/lrr_baf.segments_merged_hist_2000000nt.png`.
 
@@ -103,21 +103,35 @@ where:
 * <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 
 
+##### [TestAffyAscat](#testaffy2)
+
+
 #### Illumina
 
 ##### TestIllu660k
+
+https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE47357&format=file&file=GSE47357%5FMatrix%5Fsignal%5F660w%2Etxt%2Egz
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrayIllu660k/GSE47357_Matrix_signal_660w.txt.gz -c aCNViewer_DATA/wes/hg19.chrom.sizes -C aCNViewer_DATA/wes/centro_hg19.txt -w 2000000 -b aCNViewer_DATA/bin/ --probeFile aCNViewer_DATA/snpArrayIllu660k/Human660W-Quad_v1_H_SNPlist.txt --platform Illumina660k -t ILL_OUT --beadchip "human660w-quad"`
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f REPORT_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
-  * `REPORT_FILES` is the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
+  * `ILLU_FILES` can either be the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
     - `Sample ID`
     - `Log R Ratio`
     - `B Allele Freq`
+  
+    Alternatively, it can be the raw Illumina files with at least the following columns:
+    - `ID`
+    - `SAMPLE1.X`
+    - `SAMPLE1.Y`
+    - ...
+    - `SAMPLEn.X`
+    - `SAMPLEn.Y`
+    
   * <a href="#chrSize">`CHR_SIZE_FILE`</a>
   * <a href="#centromereFile">`CENTROMERE_FILE`</a>
   * <a href="#windowSize">`WINDOW_SIZE`</a>
