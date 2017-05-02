@@ -10,6 +10,8 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * [Glossary](#glossary)
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
+        - [Test using Affymetrix Cel files](#testaffycel)
+        - [Test using Ascat results](#TestAffyAscat)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
     * [Processing CNV file](#processing-cnv-file)
