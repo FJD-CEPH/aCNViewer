@@ -10,13 +10,16 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * [Glossary](#glossary)
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
-        - [Test using Affymetrix Cel files](#testaffycel)
         - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options**)
+        - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
-      + #testsequenzaraw
-      + #testsequenzacnvs
+      + [from paired (tumor / normal) bams](#testsequenzaraw)
+      + [from Sequenza segment files](#testsequenzacnvs)
     * [Processing CNV file](#processing-cnv-file)
+      + [from ASCAT](#testaffyascat)
+      + [from Sequenza](#testsequenzacnvs)
+      + [from other tools](#othercnvformats)
 - [Output files](#outputfiles)
   
 
@@ -65,7 +68,8 @@ aCNViewer can also be installed from its source by:
 
 ## Tutorial
 
-`expectedResults`
+For all the examples below, there is a folder named `expectedResults` in the folder associated with the `-f` option.
+
 
 ### Glossary:
 
@@ -84,6 +88,56 @@ Download the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/p
 
 #### Affymetrix
 
+##### TestAffyAscat
+Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b` <a href="#binDir">`BIN_DIR`</a> `--sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
+
+The generated histogram `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` can be found in `aCNViewer_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
+![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
+
+
+==**Here is the full command:**==
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--lohToPlot LOH_TO_PLOT] [--histogram HISTOGRAM] [--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL] [--labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS  --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING]`<br>
+where:
+* <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
+  + `sample`
+  + `chr`
+  + `startpos`
+  + `endpos`
+  + `nMajor`
+  + `nMinor`
+* <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
+* <a id="centromereFile"></a>`CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+* <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
+
+
+<a id="generalPlotOptions"></a>The following options are general plotting options:
+* <a id="sampleFile"></a>`SAMPLE_FILE`: a tab-delimited file that should contain at least a column `Sample` with the name of each sample and another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
+* <a id="phenotypicColumnName"></a>`PHENOTYPIC_COLUMN_NAME` refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature defined in `SAMPLE_FILE` will be generated
+* <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
+* `HISTOGRAM`: specify whether an histogram should be generated. The default value is 1.
+* `PLOT_ALL`: specify whether all available plots should be generated. The default value is 1.
+
+
+<a id="heatmapOptions"></a>The following options are specific to heatmaps:
+
+* `LAB_ROW` is an optional parameter telling whether heatmap's row names (chromosomal regions) should be shown. The default value is `0`
+* `LAB_COL` is an optional parameter telling whether heatmap's column names (sample names) should be shown. The default value is `1`
+* `CEX_COL` is an optional parameter setting `cexCol` for heatmaps. The default value is `0.7`. See R heatmap.2 documentation for more details
+* `CEX_ROW` is an optional parameter setting `cexRow` for heatmaps. The default value is `0.45`. See R heatmap.2 documentation for more details
+* `HEIGHT` is an optional parameter setting `height` for heatmaps. The default value is `12`. for heatmaps.
+* `WIDTH` is an optional parameter setting `width` for heatmaps. The default value is `10`. See R heatmap.2 documentation for more details
+* `MARGINS` is an optional parameter setting `margins` as a comma-separated string for heatmaps. The default value is `5,5`. See R heatmap.2 documentation for more details
+* <a id="hclust"></a>`HCLUST` is an optional parameter setting `hclust` method for heatmaps / dendrograms. See R heatmap.2 documentation for more details
+* `GROUP_LEGEND_POS` is an optional parameter setting the phenotypic / clinical feature legend's position within the heatmap. The default value is `topright` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
+* `CHR_LEGEND_POS` is an optional parameter setting the chromosome legend's position within the heatmap. The default value is `bottomleft` and can be changed to coordinates (for example `0.1,0.5`) or in R specified logical location (`top`, `bottom`, `left`, `right`, etc)
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
+* `USE_RELATIVE_COPY_NB_FOR_CLUSTERING` is an optional parameter specifying whether the CNV matrix used for the heatmap should be relative copy number values or not. The default value is `0`
+
+
 ##### TestAffyCel
 
 **Generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) of hepatocellular carcinomas with hepatitis C virus etiology used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp:**
@@ -97,21 +151,18 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[HEATMAP_OPTIONS]`](#heatmapOptions)<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
-* <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
-* <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
-* <a id="centromereFile"></a>`CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`
+* <a href="#chrSize">`CHR_SIZE_FILE`</a>
+* <a href="#windowSize">`WINDOW_SIZE`</a>
+* <a href="#centromereFile">`CENTROMERE_FILE`</a>
 * `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
 * `GW6_DIR` refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array
 * <a id="ascatGcFile">`ASCAT_GC_FILE`</a>: GC content file necessary for ASCAT GC correction when analyzing SNP array data. This parameter is optional as its value will be automatically deduced from the value of `AFFY_PLATFORM`. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files
-* <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
-* <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
-
-
-##### [Test Ascat file generated from Affymetrix SNP arrays](#testaffyascat)
+* <a href="#lohToPlot">`LOH_TO_PLOT`</a>
+* <a href="#rColorFile">`RCOLOR_FILE`</a>
 
 
 #### Illumina
@@ -124,7 +175,7 @@ Generate a quantitative stacked histogram from [raw Illumina data](https://www.n
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
   * `ILLU_FILES` can either be the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -170,7 +221,7 @@ Generate a quantitative histogram from paired (tumor / normal) bams:
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE --sampleFile SAMPLE_FILE --createMpileUp CREATE_MPILEUP -n NB_THREADS --byChr 1 [--pattern BAM_FILE_PATTERN] [-M MEMORY] [> LOG_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE --sampleFile SAMPLE_FILE --createMpileUp CREATE_MPILEUP -n NB_THREADS --byChr 1 [--pattern BAM_FILE_PATTERN] [-M MEMORY] [> LOG_FILE]`<br>
 
 
 
@@ -194,7 +245,7 @@ where:
 
 2. run Sequenza with intermediary mpileup file creation and by chromosomes (use this option only if Sequenza is freezing on some chromosomes):
 the command is the same as above with `createMpileUp` set to `1`:<br>
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 [-M MEMORY] [> LOG_FILE]`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P sequenza -r REF_FILE -b` <a href="#binDir">`BIN_DIR`</a> `-D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 1 -n NB_THREADS --byChr 1 [-M MEMORY] [> LOG_FILE]`
 
 
 3. run Sequenza without intermediary mpileup file creation on the whole bams (not recommended as it is slower than the previous 2 steps):
@@ -218,31 +269,8 @@ At the moment, ASCAT segment file and Sequenza results can be used as an input t
 
 Both examples below require to download [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz).
 
-#### TestAffyAscat
-Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
-
-The generated histogram `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` can be found in `aCNViewer_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
-![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
-
-
-==**Here is the full command:**==
-
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
-where:
-* <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
-  + `sample`
-  + `chr`
-  + `startpos`
-  + `endpos`
-  + `nMajor`
-  + `nMinor`
-* <a href="#chrSize">`CHR_SIZE_FILE`</a>
-* <a href="#centromereFile">`CENTROMERE_FILE`</a>
-* <a href="#windowSize">`WINDOW_SIZE`</a>
-* <a href="#lohToPlot">`LOH_TO_PLOT`</a>
-* <a href="#rColorFile">`RCOLOR_FILE`</a>
+#### [Test Ascat file generated from Affymetrix SNP arrays](#testaffyascat)
 
 
 #### TestSequenzaCNVs
@@ -257,7 +285,7 @@ The histogram `TARGET_DIR/ascat_merged_hist_2000000nt.png` can be found in `aCNV
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -287,20 +315,20 @@ All the different examples below **require a sample file** with at least one phe
 #### PlotHeatmaps
 
 <u>Heatmap with relative copy number values:</u>
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b` <a href="#binDir">`BIN_DIR`</a> `--chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
 
 <u>Heatmap with regions ordered by genomic positions (only clustering on samples):</u>
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b` <a href="#binDir">`BIN_DIR`</a> `--chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
 
 <u>Heatmap with copy number values:</u>
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --heatmap 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b` <a href="#binDir">`BIN_DIR`</a> `--chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
 See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
 
 
 ==**Full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --heatmap 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [--labRow LAB_ROW] [--labCol LAB_COL] [--cexCol CEX_COL] [--cexRow CEX_ROW] [--height HEIGHT] [--width WIDTH] [--margins MARGINS] [--hclust HCLUST] [--groupLegendPos GROUP_LEGEND_POS] [--chrLegendPos CHR_LEGEND_POS] [--rColorFile RCOLOR_FILE] [--useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --heatmap 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [--labRow LAB_ROW] [--labCol LAB_COL] [--cexCol CEX_COL] [--cexRow CEX_ROW] [--height HEIGHT] [--width WIDTH] [--margins MARGINS] [--hclust HCLUST] [--groupLegendPos GROUP_LEGEND_POS] [--chrLegendPos CHR_LEGEND_POS] [--rColorFile RCOLOR_FILE] [--useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -324,14 +352,14 @@ where:
 
 #### PlotDendrograms
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b` <a href="#binDir">`BIN_DIR`</a> `-u 1`
 
 ![dendrogram example:](/img/matrix_None2000000nt_dendro_BCLC_stage.png?raw=true "Dendrogram example")
 
 
 ==**Full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --dendrogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [-u USE_SHAPE] [--hclust HCLUST] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -346,17 +374,18 @@ where:
 
 #### PlotAll
 If you want to plot all available graphical representations (a quantitative stacked histogram, a heatmap and a dendrogram):<br>
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b BIN_DIR -u 1 --plotAll 1`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --dendrogram 1 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b` <a href="#binDir">`BIN_DIR`</a> `-u 1 --plotAll 1`
 
 
 ==**Full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --plotAll 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [OPTIONS]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR --plotAll 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME [OPTIONS]`<br>
 where:
 * <a href="#ascatSegmentFile">`ASCAT_SEGMENT_FILE`</a>
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
 * <a href="#centromereFile">`CENTROMERE_FILE`
 * <a href="#windowSize">`WINDOW_SIZE`
+* <a href="#binDir">`BIN_DIR`
 * <a href="#sampleFile">`SAMPLE_FILE`</a>
 * <a href="#phenotypicColumnName">`PHENOTYPIC_COLUMN_NAME`</a>
 * `OPTIONS` refers to all the options defined for heatmaps / dendrograms and quantitative stacked histograms
