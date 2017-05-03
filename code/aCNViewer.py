@@ -1801,6 +1801,7 @@ class aCNViewer:
     _LOH = 'LOH'
     _cnLOH = 'cn-LOH'
     _BOTH = 'both'
+    _NONE = 'none'
 
     def __init__(self, windowSize, percent, binDir=None, useShape=False,
                  sampleFile=None, sampleAliasFile=None, groupColumnName=None,
@@ -3055,14 +3056,18 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                 legendLabel = self._LOH
                 colorList = ['black', 'blue']
                 labelList = ['cn-LOH', 'LOH']
+            elif lohToPlot == self._NONE:
+                plotStr = ''
             else:
                 raise NotImplementedError(
                     'unrecognized value "%s" for lohToPlot. Value should be \
 one of ("LOH", "cn-LOH", "both")' % lohToPlot)
-            lohGraphStr = '+ %s + scale_colour_manual(values = %s, labels = \
-%s, name = "%s")' % (plotStr, R()._getStrFromList(colorList),
-                     R()._getStrFromList(labelList), legendLabel)
-            lohStr = 'dataLoh = read.table("%s")\ndataLoh2 = \
+            lohGraphStr = lohStr = ''
+            if lohToPlot != self._NONE:
+                lohGraphStr = '+ %s + scale_colour_manual(values = %s, labels = \
+    %s, name = "%s")' % (plotStr, R()._getStrFromList(colorList),
+                         R()._getStrFromList(labelList), legendLabel)
+                lohStr = 'dataLoh = read.table("%s")\ndataLoh2 = \
 read.table("%s")' % (os.path.abspath(lohHistFileName), os.path.abspath(lohHistFileName2))
         # if lohPointList:
             # lohStr = 'lohDataFrame = data.frame(pos=c(%s), )' %

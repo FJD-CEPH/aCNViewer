@@ -11,9 +11,11 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
         - [Test using Affymetrix Cel files](#testaffycel)
-        - [Test using Ascat results](#TestAffyAscat)
+        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options**)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
+      + #testsequenzaraw
+      + #testsequenzacnvs
     * [Processing CNV file](#processing-cnv-file)
 - [Output files](#outputfiles)
   
@@ -48,7 +50,7 @@ aCNViewer can also be installed from its source by:
   + [gplots](https://cran.r-project.org/web/packages/gplots/index.html)
   + [RColorBrewer](https://cran.r-project.org/web/packages/RColorBrewer/index.html)
 
-* [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into `BIN_DIR`) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
+* [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
 * Python with version &ge; 2.7
 
@@ -63,12 +65,14 @@ aCNViewer can also be installed from its source by:
 
 ## Tutorial
 
+`expectedResults`
+
 ### Glossary:
 
 Let's call:
 - `aCNViewer_DATA` the location where the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz) has been uncompressed into
-- `BIN_DIR` the folder containing all third-party softwares located in `aCNViewer_DATA/bin`.
-- <a id="dockerOrPython">`DOCKER_OR_PYTHON`</a> refers to the fact that `docker run fjdceph/acnviewer` or `python aCNViewer/code/aCNViewer.py` can be used as a prefix to run aCNViewer depending on the installation method.
+- <a id="binDir">`BIN_DIR`</a> the folder containing all third-party softwares located in `aCNViewer_DATA/bin`.
+- <a id="dockerOrPython">`DOCKER_OR_PYTHON`</a> refers to the fact that `docker run fjdceph/acnviewer` or `python aCNViewer/code/aCNViewer.py` can be used as a prefix to run aCNViewer depending on the chosen installation method.
 
 
 ### Requirements:
@@ -82,7 +86,7 @@ Download the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/p
 
 ##### TestAffyCel
 
-**Generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp:**
+**Generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) of hepatocellular carcinomas with hepatitis C virus etiology used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp:**
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b aCNViewer_DATA/bin/ --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
 
@@ -93,7 +97,7 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length
@@ -103,18 +107,18 @@ where:
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
 * `GW6_DIR` refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array
 * <a id="ascatGcFile">`ASCAT_GC_FILE`</a>: GC content file necessary for ASCAT GC correction when analyzing SNP array data. This parameter is optional as its value will be automatically deduced from the value of `AFFY_PLATFORM`. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files
-* <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only or "both" for cn-LOH and LOH. The default value is "cn-LOH"
+* <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
 * <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 
 
-##### [TestAffyAscat](#testaffy2)
+##### [TestAffyAscat](#testaffyascat)
 
 
 #### Illumina
 
 ##### TestIllu660k
 
-https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE47357&format=file&file=GSE47357%5FMatrix%5Fsignal%5F660w%2Etxt%2Egz
+Generate a quantitative stacked histogram from [raw Illumina data](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE47357&format=file&file=GSE47357%5FMatrix%5Fsignal%5F660w%2Etxt%2Egz) from non-Hodgkin lymphoma patients used in Yang F *et al*. PLoS One 2014 with a window size of 2Mbp:
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrayIllu660k/GSE47357_Matrix_signal_660w.txt.gz -c aCNViewer_DATA/wes/hg19.chrom.sizes -C aCNViewer_DATA/wes/centro_hg19.txt -w 2000000 -b aCNViewer_DATA/bin/ --probeFile aCNViewer_DATA/snpArrayIllu660k/Human660W-Quad_v1_H_SNPlist.txt --platform Illumina660k -t ILL_OUT --beadchip "human660w-quad"`
 
@@ -152,18 +156,26 @@ where:
   * <a href="#lohToPlot">`LOH_TO_PLOT`</a>
   * <a href="#rColorFile">`RCOLOR_FILE`</a>
 
-##### TestIlluminaWithTQN
-
-Same command as above with `-n 1` instead of `-n 0`.
-
 
 #### NGS
 
-##### ExampleSequenza: 
+Sequenza is used to process NGS **paired (tumor / normal) bams** and produce CNV segments. These segments are then used by aCNViewer to produce the different available outputs. This step is best executed on a computer cluster (supported clusters are SGE, SLURM, MOAB and LSF. Tests have been successfully made on SGE and SLURM clusters) but will work on a single machine as well (although it will be much slower).
+
+##### testSequenzaRaw
+
+Generate a quantitative histogram from paired (tumor / normal) bams:
+
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/wes/bams/ -c aCNViewer_DATA/wes/hg19.chrom.sizes -t WES_OUT -C aCNViewer_DATA/wes/centro_hg19.txt -w 2000000 -b aCNViewer_DATA/bin/ --fileType Sequenza --samplePairFile aCNViewer_DATA/wes/bams/sampleFile.txt -r aCNViewer_DATA/wes/Homo_sapiens_assembly19.fasta`
+
+==**Here is the full command:**==
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b BIN_DIR --fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE --sampleFile SAMPLE_FILE --createMpileUp CREATE_MPILEUP -n NB_THREADS --byChr 1 [--pattern BAM_FILE_PATTERN] [-M MEMORY] [> LOG_FILE]`<br>
+
+
 
 ###### CreateSequenzaCNVs
 
-This step requires an access to cluster (supported clusters are SGE, SLURM, MOAB and LSF. Tests have been sucessfully made on SGE and SLURM environments). Here are the different options available, with the most relevant option first, to generate Sequenza CNVs when analyzing paired bam files:
 
 1. run Sequenza without intermediary mpileup file creation and by chromosomes (this maximizes space and time):<br>
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P sequenza -r REF_FILE -b BIN_DIR -D BAM_DIR [--pattern BAM_FILE_PATTERN] -t TARGET_DIR --sampleFile SAMPLE_FILE --createMpileUp 0 -n NB_THREADS --byChr 1 [-M MEMORY] [> LOG_FILE]`<br>
@@ -197,6 +209,8 @@ the command is the same as above with `createMpileUp` set to `1`:<br>
 Once Sequenza CNVs have been generated sucessfully, you can proceed to the [graph generation](#testsequenzacnvs).
 
 
+
+
 ### Processing CNV file
 
 At the moment, ASCAT segment file and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below] (#OtherCNVformats).
@@ -204,12 +218,10 @@ At the moment, ASCAT segment file and Sequenza results can be used as an input t
 
 Both examples below require to download [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz).
 
-#### TestAffy2
-Generate quantitative stacked histogram from ASCAT segment files with a window size of 2Mbp:<br>
+#### TestAffyAscat
+Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
 
-[aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz) is required to run this example.
-
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --histogram 1 -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b BIN_DIR --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
 
 The generated histogram `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` can be found in `aCNViewer_DATA/snpArrays250k_sty/expectedResults/test2/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
 ![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
@@ -265,7 +277,7 @@ CNV results from any software can be processed by aCNViewer if formatted in the 
 * `nMajor`
 * `nMinor`
 
-If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` should take the value of `v / 2`.
+If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot LOH` or `--lohToPlot none` to respectively plot only LOH or disable this feature.
 
 
 
