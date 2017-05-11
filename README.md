@@ -10,7 +10,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * [Glossary](#glossary)
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
-        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**)
+        - [Test using Ascat results](#testaffyascat) (<span style="background-color: #FFFF00">start here if you want an overview of all the plotting options and different usage scenarios</span>)
         - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
@@ -98,13 +98,19 @@ The generated histogram `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000
 ![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
 
 Here are other typical plots you may be interested in:
+
 <u>Heatmap with relative copy number values:</u>
+
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
 
+
 <u>Heatmap with regions ordered by genomic positions (only clustering on samples):</u>
+
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
 
+
 <u>Heatmap with copy number values:</u>
+
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
 See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
@@ -306,7 +312,7 @@ CNV results from any software can be processed by aCNViewer if formatted in the 
 * `nMajor`
 * `nMinor`
 
-If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot LOH` or `--lohToPlot none` to respectively plot only LOH or disable this feature.
+If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot none` to disable LOH plotting.
 
 
 ### OutputFiles

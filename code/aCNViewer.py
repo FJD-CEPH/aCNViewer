@@ -386,7 +386,8 @@ class RunAscat:
         if not outFile:
             outFile = FileNameGetter(fileName).get('_gistic.txt')
         outFh = CsvFileWriter(outFile)
-        markerFh = CsvFileWriter(FileNameGetter(outFile).get('_markers.txt'))
+        markerFile = FileNameGetter(outFile).get('_markers.txt')
+        markerFh = CsvFileWriter(markerFile)
         fh = ReadFileAtOnceParser(fileName)
         header = fh.getSplittedLine()
         snpDict = {}
@@ -402,7 +403,7 @@ class RunAscat:
             if not nbCopies:
                 nbCopies += 1e-10
             outFh.write(splittedLine[:4] + [markerNb - oldMarkerNb, math.log(nbCopies, 2)-1])
-            
+        return outFile, markerFile
         
     def __createGroupFilesAndGetHeaderAndPloidyIdx(self, ploidyFile,
                                                    targetDir):
@@ -2473,7 +2474,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                                       mergeCentromereSegments=None):
         centromereDict = None
         if centromereFile:
-            centromereDict = self.__getCentromereDictFromFile(centromereFile)
+            centromereDict = self._getCentromereDictFromFile(centromereFile)
             print 'CENTRO:', centromereDict
             dumpFileName = FileNameGetter(ascatFile).get('_%s.pyDump' % os.path.basename(
                     centromereFile).split('.')[0])
@@ -4389,7 +4390,7 @@ for (obj in allFunctionList){
                     segmentList.insert(0, segment)
         return nextSegmentList
 
-    def __getCentromereDictFromFile(self, fileName):
+    def _getCentromereDictFromFile(self, fileName):
         centromereDict = {}
         fh = ReadFileAtOnceParser(fileName)
         for splittedLine in fh:
@@ -4623,6 +4624,30 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
                     Cmd('unset PYTHONPATH && ' + cmd, memory = 10))]
         ProcessFileFromCluster()._runCmdList(cmdList, chrFile, guessHpc())
     
+    def __runGISTIC(self, ascatFile, targetDir, refBuild, geneGistic, smallMem,
+                    broad, brLen, conf, armPeel, saveGene, gcm):
+        refFile = glob.glob(os.path.join(self.__binDir, 'GISTIC*',
+                                         'refgenefiles', '%s.mat' % refBuild))
+        if len(refFile) != 1:
+            raise NotImplementedError(
+                'Could not find reference file for build %s' % refBuild)
+        refFile = refFile[0]
+        outFile, markerFile = RunAscat()._convertSegmentFileIntoGisticFormat(
+            ascatFile)
+        binFile = glob.glob(os.path.join(self.__binDir, 'GISTIC*',
+                                         'gp_gistic2_from_seg'))
+        if len(binFile) != 1:
+            raise NotImplementedError(
+                'Could not find GISTIC exec gp_gistic2_from_seg')
+        binFile = binFile[0]
+        cmd = '%s -b %s -seg %s -mk %s -refgene %s -genegistic %d -smallmem %d \
+-broad %d -brlen %f -conf %f -armpeel %d -savegene %d -gcm %s' % (binFile,
+        os.path.join(targetDir, 'gistic_res'), outFile, markerFile, refFile,
+        geneGistic, int(bool(smallMem)), broad, brLen, conf, armPeel, saveGene, gcm)
+        print cmd
+        sys.exit(0)
+        Utilities.mySystem(cmd)
+        
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
                 centromereFile=None, defaultGroupValue=None,
@@ -4635,7 +4660,9 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
                 lohToPlot=None, useRelativeCopyNbForClustering = False,
                 keepGenomicPosForHistogram = False, plotSubgroups=False,
                 beadchip=None, refFileName=None, createMpileUp=True,
-                byChr=True, pattern=None, samplePairFile=None):
+                byChr=True, pattern=None, samplePairFile=None, runGISTIC=False,
+                refBuild=None, geneGistic=None, smallMem=None, broad=None,
+                brLen=None, conf=None, armPeel=None, saveGene=None, gcm=None):
         if not targetDir:
             targetDir = 'OUT'
         originalTargetDir = targetDir
@@ -4728,6 +4755,10 @@ samplePairFile should be set (option "--samplePairFile")')
                                        centromereFile, mergeCentromereSegments)
             # ploidyDict = self._getPloidyDictFromFile(ploidyFile)
             print 'Using ploidyFile = %s' % ploidyFile
+        if runGISTIC:
+            self.__runGISTIC(ascatFile, targetDir, refBuild, geneGistic,
+                             smallMem, broad, brLen, conf, armPeel, saveGene,
+                             gcm)
         # add parameters for Illumina SNP arrays
         self.__ascatFile = ascatFile
         currentCentromereFile = centromereFile
@@ -5027,13 +5058,23 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                       refFileName=options.refFileName,
                       createMpileUp=options.createMpileUp,
                       byChr=options.byChr, pattern=options.pattern,
-                      samplePairFile=options.samplePairFile)
+                      samplePairFile=options.samplePairFile,
+                      runGISTIC=options.runGISTIC,
+                      refBuild=options.refBuild, geneGistic=options.geneGistic,
+                      smallMem=options.smallMem, broad=options.broad,
+                      brLen=options.brLen, conf=options.conf,
+                      armPeel=options.armPeel, saveGene=options.saveGene,
+                      gcm=options.gcm)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all',
                                             CommandParameterType.BOOLEAN,
                                             helpString='Set to True in order \
 to generate plots using different resolutions in base pairs or in percentage \
 of chromosome length'),
+                           
+                           CommandParameter('armPeel',
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue = True),
 
                            CommandParameter('b', 'binDir', 'string',
                                             helpString='Set the location of \
@@ -5052,6 +5093,13 @@ in binDir so the structure should be binDir/APT/bin'),
 in base pairs used to split chromosomes for CNV matrix'),
 
                            CommandParameter('beadchip', 'string',),
+                           
+                           CommandParameter('brLen', CommandParameterType.FLOAT,
+                                            defaultValue = .5),
+                           
+                           CommandParameter('broad',
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue = True),
                            
                            CommandParameter('byChr',
                                             CommandParameterType.BOOLEAN,
@@ -5089,6 +5137,9 @@ R specified logical location ("top","bottom", "left", "right", etc)'),
                                             helpString='Sequenza parameter \
 indicating the name of the chromosome to process'),
 
+                           CommandParameter('conf', CommandParameterType.FLOAT,
+                                            defaultValue = .9),
+                           
                            CommandParameter('createMpileUp',
                                             CommandParameterType.BOOLEAN,
                                             defaultValue=True,
@@ -5111,7 +5162,7 @@ indicating bam folder'),
                            CommandParameter('fileName2', 'string'),
 
                            CommandParameter('fileType', 'string'),
-
+                           
                            CommandParameter('g', 'gcFile', 'string',
                                             helpString='GC file necessary for \
 ASCAT GC correction when analyzing SNP array data. Please check ASCAT website \
@@ -5122,6 +5173,13 @@ for available GC files: https://www.crick.ac.uk/peter-van-loo/software/ASCAT'),
 sampleFile used to separate samples into groups. If not set, plots will be \
 generated on each feature specified in sampleFile'),
 
+                           CommandParameter('gcm', 'string',
+                                            defaultValue = 'extreme'),
+                           
+                           CommandParameter('geneGistic',
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue = True),
+                           
                            CommandParameter('groupLegendPos', 'string',
                                             defaultValue='topright',
                                             helpString='Heatmap parameter to \
@@ -5267,6 +5325,8 @@ one histogram for all samples with the same phenotypical value'),
                                             helpString='Sequenza parameter \
 indicating path to the reference file used to generate the bams'),
 
+                           CommandParameter('refBuild', 'string'),
+                           
                            CommandParameter('rColorFile', 'string',
                                             helpString='Colors in histograms \
 (section "[histogram]"), dendrograms (section "[group]") and heatmaps \
@@ -5276,6 +5336,9 @@ See tutorial on github for an example'),
                            CommandParameter('rLibDir', 'string',
                                             helpString='Set custom R library \
 folder for installation of missing packages'),
+                           
+                           CommandParameter('runGISTIC',
+                                            CommandParameterType.BOOLEAN),
 
                            CommandParameter('sampleAliasFile', 'string'),
 
@@ -5288,6 +5351,13 @@ with clinical information with sample name "Sample" column'),
 
                            CommandParameter('samplePairFile',
                                             'string'),
+                           
+                           CommandParameter('saveGene',
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue=True),
+                             
+                           CommandParameter('smallMem',
+                                            CommandParameterType.BOOLEAN),
                            
                            CommandParameter('t', 'targetDir', 'string',
                                             helpString='Set the location of \
