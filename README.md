@@ -56,6 +56,8 @@ aCNViewer can also be installed from its source by:
 
 * [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
+* [GISTIC]() if you want to statistically prioritize regions of interest
+
 * Python with version &ge; 2.7
 
 
@@ -109,7 +111,7 @@ Here are other typical plots you may be interested in:
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
 
 
-<u>Heatmap with copy number values:</u>
+[u]Heatmap with copy number values:[/u]
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 

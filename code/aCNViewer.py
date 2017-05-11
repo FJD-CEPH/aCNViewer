@@ -4626,14 +4626,19 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
     
     def __runGISTIC(self, ascatFile, targetDir, refBuild, geneGistic, smallMem,
                     broad, brLen, conf, armPeel, saveGene, gcm):
+        targetDir = os.path.join(targetDir, 'gistic_res')
+        Utilities.mySystem('mkdir -p %s' % targetDir)
         refFile = glob.glob(os.path.join(self.__binDir, 'GISTIC*',
                                          'refgenefiles', '%s.mat' % refBuild))
         if len(refFile) != 1:
             raise NotImplementedError(
                 'Could not find reference file for build %s' % refBuild)
         refFile = refFile[0]
-        outFile, markerFile = RunAscat()._convertSegmentFileIntoGisticFormat(
-            ascatFile)
+        outFile = FileNameGetter(ascatFile).get('_gistic.txt')
+        outFile = os.path.join(targetDir, os.path.basename(outFile))
+        outFile, markerFile = Utilities.getFunctionResultWithCache(
+            FileNameGetter(outFile).get('pyDump'),
+            RunAscat()._convertSegmentFileIntoGisticFormat, ascatFile, outFile)
         binFile = glob.glob(os.path.join(self.__binDir, 'GISTIC*',
                                          'gp_gistic2_from_seg'))
         if len(binFile) != 1:
@@ -4642,10 +4647,8 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
         binFile = binFile[0]
         cmd = '%s -b %s -seg %s -mk %s -refgene %s -genegistic %d -smallmem %d \
 -broad %d -brlen %f -conf %f -armpeel %d -savegene %d -gcm %s' % (binFile,
-        os.path.join(targetDir, 'gistic_res'), outFile, markerFile, refFile,
+        targetDir, outFile, markerFile, refFile,
         geneGistic, int(bool(smallMem)), broad, brLen, conf, armPeel, saveGene, gcm)
-        print cmd
-        sys.exit(0)
         Utilities.mySystem(cmd)
         
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
@@ -4709,21 +4712,20 @@ samplePairFile should be set (option "--samplePairFile")')
                         if jobDict:
                             print '\n'
                             print '#' * 100
-                            print 'You have submitted jobs to a cluster. Please re-run the same command when all the submitted jobs are finished.'
+                            print 'You have submitted jobs to a cluster. \
+Please re-run the same command when all the submitted jobs are finished.'
                             print '#' * 100
                             sys.exit(0)
                         else:
-                            self.__submitCurrentAnalysisToCluster(ascatFile, chrFile, targetDir, ploidyFile,
-                histogram, merge, dendrogram, plotAll, centromereFile,
-                mergeCentromereSegments, gcFile, platform, libDir, gw6Dir, snpFile, normalize,
-                sampleList, heatmap, hclust, height,
-                width, cexRow, cexCol, margins,
-                labRow, labCol, groupLegendPos,
-                chrLegendPos, keepCentromereData,
-                lohToPlot, useRelativeCopyNbForClustering,
-                keepGenomicPosForHistogram, plotSubgroups,
-                beadchip, refFileName, createMpileUp,
-                byChr, pattern, samplePairFile)
+                            self.__submitCurrentAnalysisToCluster(ascatFile,
+                chrFile, targetDir, ploidyFile, histogram, merge, dendrogram,
+                plotAll, centromereFile, mergeCentromereSegments, gcFile,
+                platform, libDir, gw6Dir, snpFile, normalize, sampleList,
+                heatmap, hclust, height, width, cexRow, cexCol, margins,
+                labRow, labCol, groupLegendPos, chrLegendPos,
+                keepCentromereData, lohToPlot, useRelativeCopyNbForClustering,
+                keepGenomicPosForHistogram, plotSubgroups, beadchip,
+                refFileName, createMpileUp, byChr, pattern, samplePairFile)
                             return
                     ascatFile = currentTargetDir
                 sequenzaTargetDir = targetDir
