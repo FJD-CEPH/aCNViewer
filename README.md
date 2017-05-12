@@ -10,7 +10,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
     * [Glossary](#glossary)
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
-        - [Test using Ascat results](#testaffyascat) (<span style="background-color: #FFFF00">start here if you want an overview of all the plotting options and different usage scenarios</span>)
+        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**)
         - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
@@ -56,7 +56,7 @@ aCNViewer can also be installed from its source by:
 
 * [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
-* [GISTIC]() if you want to statistically prioritize regions of interest
+* [GISTIC](http://portals.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) if you want to statistically prioritize regions of interest
 
 * Python with version &ge; 2.7
 
@@ -101,6 +101,11 @@ The generated histogram `OUTPUT_DIR/GSE9845_lrr_baf.segments_merged_hist_2000000
 
 Here are other typical plots you may be interested in:
 
+<u>Quantitative histogram with GISTIC results:</u>
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1 --refBuild hg18`
+
+
 <u>Heatmap with relative copy number values:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -c aCNViewer_DATA/snpArrays250k_sty/hg18.chrom.sizes -t OUTPUT_DIR --PLOT_ALL 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" -C aCNViewer_DATA/snpArrays250k_sty/centro.txt -w 2000000 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -b aCNViewer_DATA/bin --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
@@ -128,7 +133,7 @@ See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--lohToPlot LOH_TO_PLOT] [--histogram HISTOGRAM] [--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--lohToPlot LOH_TO_PLOT] [--histogram HISTOGRAM] [--sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE] [--runGISTIC RUN_GISTIC --refBuild REF_BUILD --geneGistic GENE_GISTIC --smallMem SMALL_MEM --broad BROAD --brLen BR_LEN --conf CONF --armPeel ARM_PEEL --saveGene SAVE_GENE --gcm GCM]`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
@@ -150,6 +155,19 @@ where:
 * `HISTOGRAM`: specify whether an histogram should be generated. The default value is 1.
 * `PLOT_ALL`: specify whether all available plots should be generated. The default value is 1.
 * `OUTPUT_FORMAT` 
+
+
+<a id="gisticOptions"></a>**The following options are GISTIC options** (more details can be found [here](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm)):
+* `RUN_GISTIC`: specify whether to run GISTIC in order to have a statistical way to prioritize regions of interest. The default value is `0`.
+* `REF_BUILD`: the genome build used to generate the CNV segments (allowed values are `hg16`, `hg17`, `hg18` and `hg19`)
+* `GENE_GISTIC`: tell whether gene GISTIC algorithm should be used to calculate the significance of deletions at a gene level instead of a marker level. The default value is `1`.
+* `SMALL_MEM`: tell GISTIC whether to use memory compression at the cost of a longer runtime. The default value is `0`.
+* `BROAD`: tell GISTIC to run the broad-level analysis as well. The default value is `1`.
+* `BR_LEN`: set GISTIC's `broad_len_cutoff`. The default value is `0.5`.
+* `CONF`: set the confidence level used to calculate the region containing a driver. The default value is `0.9`.
+* `ARM_PEEL`: set GISTIC's `arm_peeloff`. The default value is `1`.
+* `SAVE_GENE`: tell GISTIC whether to save gene tables. The default value is `1`.
+* `GCM`: set GISTIC's `gene_collapse_method`. The default value is `extreme`.
 
 
 <a id="heatmapDendroOptions"></a>**The following options are mainly specific to heatmaps while a few are related to dendrograms:**
@@ -185,7 +203,7 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * <a href="#chrSize">`CHR_SIZE_FILE`</a>
@@ -208,7 +226,7 @@ Generate a quantitative stacked histogram from [raw Illumina data](https://www.n
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES -c CHR_SIZE_FILE -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [--lohToPlot LOH_TO_PLOT]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
   * `ILLU_FILES` can either be the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -252,7 +270,7 @@ Generate a quantitative histogram from paired (tumor / normal) bams (if you run 
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE [--byChr 1] [-n NB_THREADS] [--createMpileUp CREATE_MPILEUP] [--pattern BAM_FILE_PATTERN] [-M MEMORY]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE [--byChr 1] [-n NB_THREADS] [--createMpileUp CREATE_MPILEUP] [--pattern BAM_FILE_PATTERN] [-M MEMORY]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
   * `BAM_DIR` is the folder containing the paired bam files
   * `BAM_FILE_PATTERN` is an optional parameter which default value is `.bam`
