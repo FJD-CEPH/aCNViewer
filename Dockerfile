@@ -45,7 +45,11 @@ RUN \
   cd aCNViewer_DATA/bin/samtools-0.1.19 && make clean && make
 
 RUN \
-  cd aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_Installer && ./install -mode silent -agreeToLicense yes -destinationFolder /data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT && export LD_LIBRARY_PATH=/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/runtime/glnxa64:/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/bin/glnxa64:/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/sys/os/glnxa64:$LD_LIBRARY_PATH && export XAPPLRESDIR=/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/X11/app-defaults
+  cd aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_Installer && ./install -mode silent -agreeToLicense yes -destinationFolder /data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT
+
+ENV LD_LIBRARY_PATH=/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/runtime/glnxa64:/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/bin/glnxa64:/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/sys/os/glnxa64
+
+ENV XAPPLRESDIR=/data/aCNViewer_DATA/bin/GISTIC_2.0.23/MCR_ROOT/v83/X11/app-defaults
 
 RUN \
   python aCNViewer/code/aCNViewer.py -P installDependencies
