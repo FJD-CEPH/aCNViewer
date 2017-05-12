@@ -1027,7 +1027,7 @@ expr.genotype=true --target-sketch %s' % (aptBinDir, cdfFile, targetDir,
         if R(rDir).isPackageInstalled('ASCAT'):
             return
         fileName = 'ASCAT.tar.gz'
-        for cmd in ['wget https://github.com/Crick-CancerGenomics/ascat/archive\
+        for cmd in ['wget --no-check-certificate https://github.com/Crick-CancerGenomics/ascat/archive\
 /master.zip', 'unzip master.zip && rm master.zip',
                     'cd ascat-master && tar czf ../%s ASCAT && cd .. && \
 rm -rf ascat-master' % fileName]:
