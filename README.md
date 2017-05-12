@@ -56,7 +56,7 @@ aCNViewer can also be installed from its source by:
 
 * [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
 
-* [GISTIC](http://portals.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) if you want to statistically prioritize regions of interest
+* [GISTIC](http://portals.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) if you want to have an advanced statistical way to prioritize regions of interest. Create a folder named `GISTIC_VERSION` in `BIN_DIR` and uncompress the GISTIC archive into it. Follow the instructions listed in `INSTALL.txt` at the root of the GISTIC folder in order to install MATLAB Component Runtime required by GISTIC and set the associated environment variables (`LD_LIBRARY_PATH` and `XAPPLRESDIR`).
 
 * Python with version &ge; 2.7
 
