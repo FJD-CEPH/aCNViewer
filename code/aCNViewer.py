@@ -4656,6 +4656,8 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
             print 'Error in cmd [%s]' % cmd
             print stderr.read()
             raise
+        print 'GISTIC err = [%s]' % stderr.read()
+        print 'GISTIC out = [%s]' % stdout.read()
         
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
