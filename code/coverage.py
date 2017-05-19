@@ -76,7 +76,7 @@ class Coverage(SimpleObjectBase):
         if start > end:
             raise NotImplementedError('Inconsistent position (start > end): \
 start = %d, end = %d.\nself.pos = %s\npos= %s' % (
-                start, end, self.pos.getNiceString(), pos.getNiceString()))
+                                                   start, end, self.pos.getNiceString(), pos.getNiceString()))
         # print "END=", end, start
         pos1 = OrientedPosition(pos.ctgId, start, end, pos.ori)
         end = max(self.pos.end, pos.end)
@@ -88,7 +88,7 @@ start = %d, end = %d.\nself.pos = %s\npos= %s' % (
                 self.pos.end, pos.end) + 1, end, pos.ori)
             # print 'KOKO2'
             return Coverage(pos1, self.nb, self.score),\
-                Coverage(pos2, self.nb, self.score)
+                   Coverage(pos2, self.nb, self.score)
         # print 'KOKO1'
         return Coverage(pos1, self.nb, self.score)
 
@@ -117,6 +117,12 @@ is not None %s...' % (str((diffCov1[0].getNiceString(),
         # print diffCov2
         return diffCov1, diffCov2
 
+    #def __getattr__(self, name):
+        #try:
+            #return super().__getattr__(self, name)
+        #except:
+            #return getattr(self.pos, name)
+
     def merge(self, other):
         # print '-' * 20
         # print 'OTHER', other
@@ -143,3 +149,94 @@ is not None %s...' % (str((diffCov1[0].getNiceString(),
             diffCov2 = overlapCov
             overlapCov = tmp
         return [diffCov1, overlapCov, diffCov2]
+
+
+class CoverageMerger:
+    def __getFirstOverlappingCovInList(self, cov, covList):
+        for i in range(len(covList) - 1, -1, -1):
+            cov2 = covList[i]
+            if cov2.pos.ctgId != cov.pos.ctgId:
+                #print '==>'
+                return i+1
+            if cov.pos.start >= cov2.pos.start:
+                #print '-->'
+                return i
+        #if cov.pos.start <= cov2.pos.start and cov.pos.end <= cov2.pos.end:
+        return 0
+        #return 1
+
+    def __insertCoverageAtIdx(self, cov, idx, covList):
+        #print '(' *10
+        #print 'Inserting', idx, cov, len(covList)
+        #for i in covList:
+                #print i
+        #print ')' * 10
+        if idx >= len(covList):
+            covList.append(cov)
+            return
+        try:
+            covInList = covList[idx]
+        except:
+            print 'Exception:'
+            print cov
+            print len(covList), idx
+            for i in range(1, min(10, len(covList) + 1)):
+                print 'Cov', covList[-i]
+            raise
+        leftCov, middleCov, rightCov = covInList.merge(cov)
+        #print '%' * 20
+        #print 'Merging', cov, covInList
+        #print leftCov, middleCov, rightCov
+        if [middleCov.pos, leftCov, rightCov] == [None, None, None]:
+            if cov.pos < covInList.pos:
+                covList.insert(idx, cov)
+            else:
+                covList.append(cov)
+            return
+        if middleCov.pos is None:
+            middleCov = cov
+        if leftCov:
+            #print 'lll', idx, len(covList)
+            covList[idx] = leftCov
+            #print 'll', len(covList)
+            idx += 1
+            covList.insert(idx, middleCov)
+            idx += 1
+            #print 'L', idx, len(covList)
+        else:
+            covList[idx] = middleCov
+            idx += 1
+            #print 'M', idx, len(covList)
+        if rightCov:
+            #print '>' * 20
+            #print 'Right', rightCov
+            #print idx, len(covList)
+            self.__insertCoverageAtIdx(rightCov, idx, covList)
+        #print '%%%%%%%%%'
+        #for c in covList:
+                #print c
+        #print '??'
+
+    def _mergeCov(self, pos, covList):
+        from ObjectBase import getClassName
+        cov = pos
+        if getClassName(pos) != 'Coverage':
+            cov = Coverage(pos)
+        #print Utilities.getTimeString(), 'START'
+        idx = self.__getFirstOverlappingCovInList(cov, covList)
+        #print Utilities.getTimeString(), 'After idx'
+        #print '+' * 30
+        #print pos, idx, len(covList)
+        #print len(covList), str(covList[-1])
+        #print '[' * 20
+        #for a in covList:
+                #print a
+        #print ']' * 20
+        self.__insertCoverageAtIdx(cov, idx, covList)
+        #print ':' * 100
+        #for co in covList:
+                #print co
+        #print '.' * 40
+        #self.__checkMerge(covList)
+        #print Utilities.getTimeString(), 'After insertion'
+        return idx

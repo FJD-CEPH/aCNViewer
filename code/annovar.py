@@ -15,7 +15,7 @@ from FileHandler import FileNameGetter
 
 try:
     from spaceManager import SpaceManager
-except:
+except ImportError:
     SpaceManager = None
 
 
@@ -26,8 +26,8 @@ class Cmd:
                  machineToExcludeList=None,
                  onSubmitAction=False, walltime=None, queue=None, email=None,
                  scriptName=None, optionList=None):
-        if _guessLocation() == HpcScriptBase.GUILLIMIN:
-            memory = 2
+        #if _guessLocation() == HpcScriptBase.GUILLIMIN:
+            #memory = 2
         self.cmd = cmd
         nodeNb = 1
         if isinstance(nbCpus, types.TupleType):
@@ -136,7 +136,7 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
         return
 
     def _replaceInputAndOutputInStr(self, cmd, inputFile, outputFile):
-        if not isinstance(inputFile, types.ListType):
+        if inputFile is not None and not isinstance(inputFile, types.ListType):
             cmd = cmd.replace('[input]', inputFile)
         return cmd.replace('[output]', outputFile)
 
@@ -179,7 +179,12 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
             nextCmdTuple = cmdList[nextIdx]
             if not nextCmdTuple[1]:
                 paramList = list(nextCmdTuple[0])
-                break
+                res = self._getSubmitParamListFromCmd(
+                *[paramList[0]] + paramList + [dumpFileName, None, None,
+                                               nextIdx])
+                if isinstance(res, types.TupleType):
+                    break
+                cmdList[nextIdx][1] = True
             nextIdx += 1
             print 'Passing done job: [%s]' % self.__getCmdFromParamList(
                 list(nextCmdTuple[0]))
@@ -187,13 +192,16 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
             print nextIdx, paramList
             currentCmd = self.__getCmdFromParamList(paramList)
             print nextIdx, currentCmd
-        cmd, fileName, outputFile, onSubmitAction, walltime, queue,
-        machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,
-        jobName, expectedFormat, otherExpectedFormatList, errorFile, outFile,
+        cmd, fileName, outputFile, onSubmitAction, walltime, queue,\
+        machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,\
+        jobName, expectedFormat, otherExpectedFormatList, errorFile, outFile,\
         jobId, dumpFileName2, email, scriptName, optionList = \
             self._getSubmitParamListFromCmd(
                 *[paramList[0]] + paramList + [dumpFileName, None, None,
                                                nextIdx])
+        #fileName, expectedFormat,
+        #outputFilePattern, cmd, dumpFileName=None,
+        #fileToJobIdDict=None, cmdList=None, i=None
         if test:
             print cmd
             return
@@ -231,7 +239,7 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
             expectedFormat = expectedFormat[0]
         print 'F', fileName, expectedFormat  # , myStr(cmd)
         # print cmdList
-        if not isinstance(fileName, types.ListType) and \
+        if fileName is not None and not isinstance(fileName, types.ListType) and \
            expectedFormat != Utilities.getFileExtension(fileName):
             fileName = self.__getFileWithExtensionInDir(
                 os.path.dirname(fileName), expectedFormat)
@@ -301,9 +309,10 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
         cmd = cmd + ' && touch %s' % doneFile
         # print cmd
         # if isinstance(cluster, HpcBase):
+        jobId = None
         if isinstance(fileName, types.StringType):
             jobId = fileToJobIdDict.get(fileName)
-        else:
+        elif fileName is not None:
             jobId = [fileToJobIdDict.get(
                 currentFileName) for currentFileName in fileName if
                 currentFileName in fileToJobIdDict]
@@ -333,11 +342,15 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
                 os.path.abspath(__file__), dumpFileName, i)
         return cmd, fileName, outputFile, onSubmitAction, walltime, queue,\
                machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,\
-               jobName,expectedFormat, otherExpectedFormatList, errorFile,\
+               jobName, expectedFormat, otherExpectedFormatList, errorFile,\
                outFile, jobId, dumpFileName, email, scriptName, optionList
 
     def _runCmdList(self, cmdList, fileName, cluster=None, jobId=None,
-                    fileToJobIdDict=None, targetDumpFile=None):
+                    fileToJobIdDict=None, targetDumpFile=None, ):
+        if self._recursive or self._maxNbJobs:
+            if not self._recursive:
+                cmdList = [(cmd, outputFile) for inFile, outputFile, cmd in cmdList]
+            return self.__runMergedJobs(cmdList, cluster, os.path.dirname(__file__))
         if not fileToJobIdDict:
             fileToJobIdDict = {}
         if isinstance(fileName, types.TupleType):
@@ -360,7 +373,7 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
             machineToUseList, machineToExcludeList, nbCpus, nodeNb, memory,\
             jobName, expectedFormat, otherExpectedFormatList, errorFile,\
             outFile, jobId, dumpFileName, email, scriptName, optionList = \
-                paramList
+            paramList
             # if not jobId:
             # jobId = fileToJobIdDict.get(os.path.basename(fileName))
             print 'FILENAME %s, jobId %s' % (fileName, jobId), fileToJobIdDict
@@ -400,7 +413,7 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
         if targetDumpFile:
             print 'runCmdInParallel with %d threads' % self._nbCpus
             Utilities.saveCache(newCmdList, targetDumpFile)
-            cmd = 'python %s -c %s -n %d' % (os.path.join(os.path.dirname(
+            cmd = 'python %s -c %s -n %d -A 1' % (os.path.join(os.path.dirname(
                 os.path.abspath(__file__)), 'runCmdInParallel.py'),
                 targetDumpFile,
                 int(self._nbCpus *
@@ -421,10 +434,13 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
         return
 
     def __getFileSizeAndDumpFileFromCmd(self, cmd):
-        keyword = 'recursiveCmd -f '
-        if keyword not in cmd:
-            raise NotImplementedError(
-                'Keyword "%s" not in cmd [%s]' % (keyword, cmd))
+        if isinstance(cmd, Cmd):
+            cmd = cmd.cmd
+        if self._recursive:
+            keyword = 'recursiveCmd -f '
+            if keyword not in cmd:
+                raise NotImplementedError(
+                    'Keyword "%s" not in cmd [%s]' % (keyword, cmd))
         dumpFile = cmd.split(keyword)[-1].split()[0]
         cmdList = Utilities.loadCache(dumpFile)
         for cmd in cmdList:
@@ -448,28 +464,65 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
         return fileSizeAndJobList
 
     def __runMergedJobs(self, jobList, cluster, dirName):
+        if isinstance(jobList[0], types.TupleType) and len(jobList[0]) == 3:
+            jobList = [(inFile, outputFile, cmd) for inFile, outputFile, cmd in jobList if not os.path.isfile(outputFile + '_done')]
+        #print jobList[0]
         nbJobsToMerge = int(math.ceil(1. * len(jobList) / self._maxNbJobs))
-        jobList = self.__getJobListSortedByFileSize(jobList)
+        if self._recursive:
+            try:
+                jobList = self.__getJobListSortedByFileSize(jobList)
+            except:
+                #jobList = [(None, None, cmd, outputFile) for inFile, cmd, outputFile in jobList]
+                pass
+            currentMemory = None
+            paramDict = {}
+        else:
+            currentMemory = jobList[0][0].memory
+            paramDict = {'memory': currentMemory}
+            jobList = [(None, None, cmd.cmd, outputFile) for cmd, outputFile in jobList]
         step = int(math.ceil(len(jobList)) / nbJobsToMerge)
         jobToMergeDict = defaultdict(list)
+        
         for i in range(step):
             for j in range(nbJobsToMerge):
                 idx = i * nbJobsToMerge + j
                 jobToMergeDict[i].append(jobList[idx])
         print '%d jobs to merge with an average of %d lanes per job' % \
-              (len(jobToMergeDict), nbJobsToMerge)
+              (len(jobList), nbJobsToMerge)
+        currentNbCpus = self._nbCpus
+        useScript = False
+        if os.environ.get('USE_SCRIPT'):
+            useScript = True
+        if not self._recursive:
+            currentNbCpus = self._nbCpus * nbJobsToMerge
+            if 'NB_CPUS_TO_USE' in os.environ:
+                currentNbCpus = int(os.environ['NB_CPUS_TO_USE'])
         for i in range(step):
             targetDumpFile = os.path.join(dirName, 'mergedCmd%d.pyDump' % i)
             currentJobList = jobToMergeDict[i]
             cmdList = []
-            for fileSize, dumpFile, cmd, outputFile in currentJobList:
-                cmdList += Utilities.loadCache(dumpFile)
+            for paramList in currentJobList:
+                if len(paramList) == 4:
+                    fileSize, dumpFile, cmd, outputFile = paramList
+                    if dumpFile:
+                        cmdList += Utilities.loadCache(dumpFile)
+                    else:
+                        cmdList.append((cmd, outputFile))
+                else:
+                    cmdList += [[paramList, False]]
             Utilities.saveCache(cmdList, targetDumpFile)
-            cmd = 'python %s -p recursiveCmd -f %s -i %d' % (
-                os.path.abspath(__file__), targetDumpFile, idx)
+            if self._recursive:
+                cmd = 'python %s -p recursiveCmd -f %s -i %d' % (
+                os.path.abspath(__file__), targetDumpFile, 0)
+            else:
+                if 'NB_JOBS_TO_RUN' in os.environ:
+                    nbJobsToMerge = int(os.environ['NB_JOBS_TO_RUN'])
+                cmd = 'python %s -n %d -c %s -A 1 -u %d' % (os.path.join(os.path.dirname(__file__), 'runCmdInParallel.py'), nbJobsToMerge, targetDumpFile, useScript)
+            
+            
             cluster.submitJobAndGetId(cmd, errorFile=targetDumpFile + '.err',
                                       outputFile=targetDumpFile + '.out',
-                                      machineToUseList=self._machineList)
+                                      machineToUseList=self._machineList, walltime = None, nbProc = currentNbCpus, **paramDict)
 
     def process(self, dirName, *args):
         # if self._machineList:
