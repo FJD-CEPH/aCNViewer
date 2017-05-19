@@ -10,7 +10,15 @@ purple
 darkblue
 magenta
 
-[heatmap]
+[heteroHomo]
+blue
+lightblue
+red
+orange
+darkgreen
+lightgreen
+
+[heatmapRaw]
 blue
 green
 orange
@@ -21,6 +29,10 @@ grey
 purple
 darkblue
 magenta
+
+[heatmapRel]
+yellow
+green
 
 [chr]
 #F2F3F4
