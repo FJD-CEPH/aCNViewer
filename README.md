@@ -226,7 +226,7 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR --refBuild REF_BUILD -t OUTPUT_DIR -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR --refBuild` [`REF_BUILD`](#refbuild) `-t OUTPUT_DIR -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
@@ -245,7 +245,7 @@ Generate a quantitative stacked histogram from [raw Illumina data](https://www.n
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES --refBuild` [`REF_BUILD`](#refBuild) `-b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES --refBuild` [`REF_BUILD`](#refbuild) `-b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
   * `ILLU_FILES` can either be the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -289,7 +289,7 @@ Generate a quantitative histogram from paired (tumor / normal) bams (if you run 
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `--fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE -r REF_FILE [--byChr 1] [-n NB_THREADS] [--createMpileUp CREATE_MPILEUP] [--pattern BAM_FILE_PATTERN] [-M MEMORY]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f BAM_DIR -t OUTPUT_DIR --refBuild` [`REF_BUILD`](#refbuild) `-b` <a href="#binDir">`BIN_DIR`</a> `--fileType Sequenza --samplePairFile SAMPLE_PAIR_FILE [-r REF_FILE] [--byChr 1] [-n NB_THREADS] [--createMpileUp CREATE_MPILEUP] [--pattern BAM_FILE_PATTERN] [-M MEMORY]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
   * `BAM_DIR` is the folder containing the paired bam files
   * `BAM_FILE_PATTERN` is an optional parameter which default value is `.bam`
@@ -300,9 +300,9 @@ where:
     - `idvdName`
     - `sampleName`
     - `type` which should either be `T` for tumoral samples or `N` for normal samples
-  * `REF_FILE` is the reference file in fasta format used to generate the bam files
+  * `REF_FILE` is the reference file in fasta format used to generate the bam files. When `REF_BUILD` is set, `REF_FILE` is automatically set to the fasta file present in `aCNViewer_DATA/genomes/REF_BUILD`.
   * `BY_CHR` is an optional parameter to indicate whether Sequenza should create seqz (Sequenza intermediate file) files by chromosome or not (the default value is `1`)
-  * `NB_CPUS` is an optional parameter specifying the number of cores which will be used for each sample pair to create chromosomal seqz files if `BY_CHR` has been set to `1`. If aCNViewer is ran on a <a href="#supportedClusters">supported computer cluster</a> master node, jobs will be submitted to the cluster. Otherwise, multi-threading will be used run Sequenza.
+  * `NB_THREADS` is an optional parameter specifying the number of cores which will be used for each sample pair to create chromosomal seqz files if `BY_CHR` has been set to `1`. If aCNViewer is ran on a <a href="#supportedClusters">supported computer cluster</a> master node, jobs will be submitted to the cluster. Otherwise, multi-threading will be used run Sequenza.
   * `CREATE_MPILEUP` is an optional parameter telling Sequenza whether to create intermediate mpileup files when generating results. The default value is `1` and it is recommended not to change its value as Sequenza may freeze in some cases when set to `0`.
   * `MEMORY`: optional argument specifying allocated memory in GB to run Sequenza when using a computer cluster. The default value is 8 (GB) and should work for most WES analysis
 
@@ -319,14 +319,9 @@ The histogram `TARGET_DIR/ascat_merged_hist_2000000nt.png` can be found in `aCNV
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f SEQUENZA_RES_DIR --fileType Sequenza -c CHR_SIZE_FILE -t TARGET_DIR --histogram 1 -C CENTROMERE_FILE -w WINDOW_SIZE -b` <a href="#binDir">`BIN_DIR`</a> `[--lohToPlot LOH_TO_PLOT] [--rColorFile RCOLOR_FILE]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f SEQUENZA_RES_DIR --fileType Sequenza -t TARGET_DIR --refBuild` [`REF_BUILD`](#refbuild) `-b` <a href="#binDir">`BIN_DIR`</a> [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
 * `SEQUENZA_RES_DIR` is the folder containing Sequenza results (`*_segments.txt`)
-* <a href="#chrSize">`CHR_SIZE_FILE`</a>
-* <a href="#centromereFile">`CENTROMERE_FILE`</a>
-* <a href="#windowSize">`WINDOW_SIZE`</a>
-* <a href="#lohToPlot">`LOH_TO_PLOT`</a>
-* <a href="#rColorFile">`RCOLOR_FILE`</a>
   
   
 ### Processing CNV files
