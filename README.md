@@ -14,9 +14,9 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
         - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**):
-          x [all plots](#allPlots)
-          x [use custom colors for plots](#customColors)
-          x [custom graphical output formats](outputFormatExamples)
+          * [all plots](#allPlots)
+          * [use custom colors for plots](#customColors)
+          * [custom graphical output formats](#outputFormatExamples)
         - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
