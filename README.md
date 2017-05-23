@@ -13,7 +13,10 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     * [Glossary](#glossary)
     * Processing SNP array data:
       + [Affymetrix](#affymetrix)
-        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**)
+        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**):
+          x [all plots](#allPlots)
+          x [use custom colors for plots](#customColors)
+          x [custom graphical output formats](outputFormatExamples)
         - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
     * [Processing NGS data](#ngs)
@@ -21,9 +24,13 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
       + [from Sequenza segment files](#testsequenzacnvs)
     * [Processing CNV file](#processing-cnv-files)
       + [from ASCAT](#testaffyascat)
+      + [from PennCNV](#penncnv)
       + [from Sequenza](#testsequenzacnvs)
       + [from other tools](#othercnvformats)
 - [Output files](#outputfiles)
+    * [ASCAT](#ascat)
+    * [GISTIC](#gistic)
+    * [Sequenza](#sequenza)
     * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
   
 
@@ -100,7 +107,7 @@ Download the test data set [aCNViewer_DATA.tar.gz (~5GB and ~20GB uncompressed)]
 #### Affymetrix
 
 ##### TestAffyAscat
-Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
+<a id="allPlots"></a>Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
 
@@ -109,34 +116,34 @@ The generated histogram `TEST1_1/GSE9845_lrr_baf.segments_merged_hist_2000000nt.
 
 Here are other typical plots you may be interested in:
 
-<u>Customize colors:</u>
+<a id="customColors"></a><u>Customize colors:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_RCOLOR --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --rColorFile aCNViewer_DATA/rColor.txt`
 
 
-<a id="#gistic"></a><u>Quantitative histogram with GISTIC results:</u>
+<a id="gisticExample"></a><u>Quantitative histogram with GISTIC results:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1`
 
 
-<u>Heatmap with relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
+<a id="heatmapRel"></a><u>Heatmap with relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP1 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
 
 
-<u>Heatmap with regions ordered by genomic positions (only clustering on samples):</u>
+<a id="heatmapGenPos"></a><u>Heatmap with regions ordered by genomic positions (only clustering on samples):</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP_GENPOS --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
 
 
-<u>Heatmap with copy number values:</u>
+<a id="heatmapCNV"></a><u>Heatmap with copy number values:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP2 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
 See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
 
 
-<u>Dendrogram with copy number values:</u>
+<a id="dendroExample"></a><u>Dendrogram with copy number values:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_DENDRO --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 0 --dendrogram 1 -G "BCLC stage" -u 1`
 
@@ -178,7 +185,7 @@ where:
 <a id="histogramOptions"></a>**The following options are histogram specific**:
 * `HISTOGRAM`: specify whether an histogram should be generated. The default value is `0` but its value is overriden to `1` when option `--plotAll 1` is set.
 * <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
-* `USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length. The default value is `1`.
+* `USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
 
 
 <a id="gisticOptions"></a>**The following options are GISTIC options** (more details can be found [here](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm)):
@@ -217,7 +224,7 @@ where:
 
 **Generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) of hepatocellular carcinomas with hepatitis C virus etiology used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp:**
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/`
 
 If ASCAT is not installed (i.e you are not using the [docker](https://hub.docker.com/r/fjdceph/acnviewer/) application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
 
@@ -226,12 +233,12 @@ The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also b
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR --refBuild` [`REF_BUILD`](#refbuild) `-t OUTPUT_DIR -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR --gw6Dir GW6_DIR [--gcFile ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f CEL_DIR --refBuild` [`REF_BUILD`](#refbuild) `-t OUTPUT_DIR -b` <a href="#binDir">`BIN_DIR`</a> `--platform AFFY_PLATFORM -l AFFY_LIB_DIR [--gw6Dir GW6_DIR] [--gcFile ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
 * `CEL_DIR` is the folder containing ".cel" ou ".cel.gz" files
 * `AFFY_PLATFORM`: name of ASCAT supported Affymetrix platform with a GC content file available ("Affy250k_sty", "Affy250k_nsp", "Affy500k" or "AffySNP6"). Please refer to [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
-* `GW6_DIR` refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array and is located in `aCNViewer_DATA/snpArrays250k_sty/gw6/`.
+* `GW6_DIR` is optional and refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array and has been uncompressed into `aCNViewer_DATA/bin/PennCNV/gw6/` (default value).
 * <a id="ascatGcFile">`ASCAT_GC_FILE`</a>: GC content file necessary for ASCAT GC correction when analyzing SNP array data. This parameter is optional as its value will be automatically deduced from the value of `AFFY_PLATFORM`. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files. It is also possible to [create custom GC file](https://github.com/Crick-CancerGenomics/ascat/tree/master/gcProcessing).
 
 
@@ -326,7 +333,7 @@ where:
   
 ### Processing CNV files
 
-At the moment, ASCAT segment file and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below] (#OtherCNVformats).
+At the moment, ASCAT segment file, PennCNV and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below] (#OtherCNVformats).
 
 
 Both examples below require to download [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz).
@@ -334,7 +341,15 @@ Both examples below require to download [aCNViewer_DATA.tar.gz](http://www.cephb
 
 #### [Ascat file generated from Affymetrix SNP arrays](#testaffyascat)
 
+#### PennCNV
+
+Generate quantitative stacked histogram from PennCNV results (79 samples from [Hapmap3](ftp://ftp.ncbi.nlm.nih.gov/hapmap/raw_data/hapmap3_affy6.0/Broad_hapmap3_r2_Affy6_cels_excluded.tgz)):<br>
+
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/pennCNV/hapmap3.rawcnv -t TEST_PENN_CNV --refBuild hg18 -b aCNViewer_DATA/bin --lohToPlot none`
+
 #### [Sequenza segments](#testsequenzacnvs)
+
+
 
 #### OtherCNVformats
 
@@ -346,7 +361,7 @@ CNV results from any software can be processed by aCNViewer if formatted in the 
 * `nMajor`
 * `nMinor`
 
-If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot none` to disable LOH plotting.
+The result file should be sorted according to the following ordered column names: `sample`, `chr`, `startpos`, `endpos` and chromosome names in the `chr` column should not contain the prefix `chr` so `chr1` should appear as `1`. If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot none` to disable LOH plotting.
 
 
 ### OutputFiles
@@ -370,9 +385,14 @@ When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CN
 | .segments.txt | list of all CNVs with the copy number for each allele |
 
 
+#### GISTIC
+
+
+
 #### Sequenza
 
-
+The Sequenza results of each sample pair are stored in a folder named `TUMOR_NORMAL_sequenza` in the `sequenza` folder and contains the following files:
+* 
 
 
 #### HistogramOutputs
@@ -385,9 +405,9 @@ When generating histograms, 3 text files with the suffix `_samples.txt` will be 
 Each file is in the same format with the following columns:
 * `CNV key`: the relative copy number value compared to the tumor ploidy
 * `chrName`
-* `start`
+* `start`: the middle of the segment so the real start is `start - segmentLength / 2`
 * `segmentLength`
-* `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, `start`, `start + segmentLength`)
+* `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, `start - segmentLength / 2`, `start + segmentLength / 2`)
 * `samples`: the list of the samples falling in the above category
 
 
@@ -401,6 +421,4 @@ The following files are created as well:
 
 2 folders (`relCopyNb` and `rawCopyNb`) will be created and will respectively contain graphs generated from relative copy number values and raw copy number values.
 
-
-#### GISTIC
 

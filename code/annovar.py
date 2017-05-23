@@ -332,8 +332,9 @@ nbFilesToProcess = %d' % (partNb, totalNbParts, totalNbFiles,
                     ' && '.join(
                         ['[ -f %s_done ]' % otherExpectedFormat for
                          otherExpectedFormat in otherExpectedFormatList])
-            cmd = 'if [ -f %s_done ]%s; then %s; fi' % (
-                expectedFormat, otherExpectedFormatStr, cmd)
+            if expectedFormat:
+                cmd = 'if [ -f %s_done ]%s; then %s; fi' % (
+                    expectedFormat, otherExpectedFormatStr, cmd)
         if self._recursive:
             if not dumpFileName:
                 dumpFileName = self.__createCmdListDumpFileAndGetName(

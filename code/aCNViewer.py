@@ -10,7 +10,7 @@ from MultiDict import *
 from FileHandler import *
 from commandLineUtils import *
 from position import Position
-from Cluster import ThreadManager, _getNbAvailableCpus, guessHpc
+from Cluster import ThreadManager, _getNbAvailableCpus, guessHpc, _getTaskIdx
 from Utilities import *
 from annovar import ProcessFileFromCluster, Cmd
 from R import R
@@ -229,7 +229,8 @@ class RunTQN:
                splitFile or '_extracted.txt' in splitFile:
                 continue
             sampleName = os.path.basename(splitFile).split('_')[-1]
-            sampleName = sampleName.split('.')[0]
+            if _isCustom:
+                sampleName = sampleName.split('.')[0]
             outFh.write([sampleName, os.path.basename(splitFile), fileNb])
             Utilities()._runFunc(self.__createExtractedFileFromShortReport,
                                  [splitFile, sampleName], splitFile)
@@ -697,7 +698,7 @@ class RunAscat:
         for i, colName in enumerate(header):
             if i <= 2:
                 continue
-            sampleName = colName.split('.')[0]
+            sampleName = '.'.join(colName.split('.')[:-1])
             # print i, sampleName
             if sampleName in tumorSampleList:
                 sampleType = 'Tumor'
@@ -720,7 +721,7 @@ class RunAscat:
     def __getTumorSampleListFromLrrBafFile(self, fileName):
         fh = ReadFileAtOnceParser(fileName, bufferSize=1)
         header = fh.getSplittedLine()
-        sampleSet = set([columnName.split('.')[0]
+        sampleSet = set(['.'.join(columnName.split('.')[:-1])
                          for columnName in header[3:]])
         return list(sampleSet)
 
@@ -1197,7 +1198,8 @@ does not contain "%s"' % (header, tQNkeyword))
             partList = columnName.split('.')
             if len(partList) != 2:
                 continue
-            sampleName, dataType = partList
+            dataType = partList[-1]
+            sampleName = '.'.join(partList[:-1])
             sampleName = sampleName.replace('#', 'A')
             if sampleName not in sampleList:
                 sampleList.append(sampleName)
@@ -1359,16 +1361,26 @@ does not contain "%s"' % (header, tQNkeyword))
         self.__checkAndInstallRpackagesIfNecessary(rDir)
         RunSequenza(self.__binDir, self.__rLibDir)._installSequenzaIfNecessary()
     
+    def __getGw6Dir(self):
+        gw6Dir = os.path.join(self.__binDir, 'PennCNV', 'gw6')
+        if not os.path.isdir(gw6Dir):
+            raise NotImplementedError('gw6Dir "%s" does not exist' % gw6Dir)
+        return gw6Dir
+        
     def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile,
                 platform, libDir=None, gw6Dir=None, snpFile=None,
                 normalize=True, sampleList=None, targetDir=None, beadchip=None):
         if not gcFile:
             if platform not in self.__gcFileDict:
-                raise NotImplementedError('SNP array platform "%s" unhandled' % platform)
+                raise NotImplementedError('SNP array platform "%s" unhandled' %
+                                          platform)
             gcFile = self.__gcFileDict[platform]
+        if not gw6Dir:
+            gw6Dir = self.__getGw6Dir()
         if ',' in lrrBafFile:
             lrrBafFile = lrrBafFile.split(',')
-        if isinstance(lrrBafFile, types.StringType) and os.path.isfile(lrrBafFile):
+        if isinstance(lrrBafFile, types.StringType) and \
+           os.path.isfile(lrrBafFile):
             lrrBafFile = [lrrBafFile]
         if isinstance(lrrBafFile, types.ListType):
             outFileName = os.path.join(os.path.dirname(
@@ -1490,12 +1502,9 @@ class RunSequenza:
         cmdList.append((refFile, gcFile, Cmd(
             '%s %s -P gc -r %s' % (sys.executable, os.path.abspath(__file__), refFile))))
         return gcFile
-
-    def __appendSeqzFileCreation(self, tumorBam, normalBam, refFile, gcFile,
-                                 cmdList, targetDir, createPileUp, byChr):
-        outFileName = os.path.join(targetDir, 'tmp', '%s_%s.seqz.gz' % (
-            os.path.basename(tumorBam).split('.')[0],
-            os.path.basename(normalBam).split('.')[0]))
+    
+    def __getSeqzFileCmd(self,  tumorBam, normalBam, refFile, gcFile,
+                         targetDir, createPileUp, byChr, outFileName):
         cmd = '%s %s -P seqz --normalBam %s --tumorBam %s -r %s --gcFile %s\
  --targetDir %s --createMpileUp %d --byChr %d' % (sys.executable,
                                                   os.path.abspath(__file__),
@@ -1507,9 +1516,25 @@ class RunSequenza:
             cmd += ' -b %s' % self.__binDir
         if self.__nbCpus:
             cmd += ' -n %d' % self.__nbCpus
+        return cmd
+    
+    def __getSeqzMemory(self):
         memory = 10
         if self.__nbCpus:
             memory *= self.__nbCpus
+        return memory
+    
+    def __getSeqzSampleOutFile(self, targetDir, tumorBam, normalBam):
+        return os.path.join(targetDir, 'tmp', '%s_%s.seqz.gz' % (
+            os.path.basename(tumorBam).split('.')[0],
+            os.path.basename(normalBam).split('.')[0]))
+    
+    def __appendSeqzFileCreation(self, tumorBam, normalBam, refFile, gcFile,
+                                 cmdList, targetDir, createPileUp, byChr):
+        outFileName = self.__getSeqzSampleOutFile(targetDir, tumorBam, normalBam)
+        cmd = self.__getSeqzFileCmd(tumorBam, normalBam, refFile, gcFile,
+                              targetDir, createPileUp, byChr, outFileName)
+        memory = self.__getSeqzMemory()
         cmdList.append((gcFile, outFileName, Cmd(
             cmd, memory=memory, nbCpus=max(1, self.__nbCpus))))
         return outFileName
@@ -1650,14 +1675,18 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         R(self.__binDir, libDir=self.__rLibDir).runCmd(
             rStr, FileNameGetter(seqzFile).get('R'))
 
+    def __hasRefChrPrefix(self, refFile):
+        hasChrPrefix = False
+        if str(self.__getChrList(refFile, True)[0])[:3] == 'chr':
+            hasChrPrefix = True
+        return hasChrPrefix
+        
     def __appendSequenza(self, seqzFile, byChr, refFile, cmdList):
         # for chrName in self.__getChrList(refFile, byChr):
         memory = 8
         if self.__memory:
             memory = self.__memory
-        hasChrPrefix = False
-        if str(self.__getChrList(refFile, True)[0])[:3] == 'chr':
-            hasChrPrefix = True
+        hasChrPrefix = self.__hasRefChrPrefix(refFile)
         for chrName in [None]:
             currentOutFileName = seqzFile
             if chrName:
@@ -1738,6 +1767,15 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
 
     def _createSeqzFile(self, tumorBam, normalBam, refFile, gcFile,
                         outFileName, createPileUp=False, byChr=False):
+        taskIdx = _getTaskIdx()
+        if taskIdx is not None:
+            targetDir = outFileName
+            sampleList = self.__getSampleListFromSampleFile(tumorBam)
+            bamDict = Utilities.loadCache(normalBam)
+            tumorSample, normalSample = sampleList[taskIdx]
+            tumorBam = bamDict[tumorSample]
+            normalBam = bamDict[normalSample]
+            outFileName = self.__getSeqzSampleOutFile(targetDir, tumorBam, normalBam)
         chrList = self.__getChrList(refFile, byChr)
         cluster = ThreadManager(self.__nbCpus)
         for chrName in chrList:
@@ -1753,6 +1791,12 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         if byChr:
             Utilities()._runFunc(self.__mergeSeqzFilesAndClean,
                                  [outFileName, refFile, chrList], outFileName)
+        if taskIdx is not None:
+            self._runSequenza(outFileName, hasChrPrefix = self.__hasRefChrPrefix(refFile))
+            Utilities.mySystem('touch %s' % os.path.join(targetDir, 'seq_%d_done' % taskIdx))
+            nbDoneJobs = len(glob.glob(os.path.join(targetDir, 'seq_*_done')))
+            if nbDoneJobs == len(sampleList):
+                Utilities.mySystem('touch %s' % os.path.join(targetDir, 'sequenza_done'))
 
     def __getTumorAndNormalSampleListFromFile(self, sampleFile):
         idvdDict = self._getIdvdToPairDictFromFile(sampleFile)
@@ -1768,25 +1812,40 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             for tumorSample in sampleList:
                 pairList.append((tumorSample, normalSampleList[0]))
         return pairList
-
-    def process(self, sampleFile, dirName, pattern, targetDir, refFile,
-                createPileUp=False, byChr=False):
-        if targetDir:
-            targetDir = os.path.abspath(targetDir)
-        Utilities.mySystem('mkdir -p %s' % os.path.join(targetDir, 'tmp'))
-        bamDict = Utilities.getFunctionResultWithCache(
-            os.path.join(targetDir, 'tmp', '%s_bamDictSequenza.pyDump' % 
-                         os.path.basename(dirName.rstrip(os.path.sep))),
-            self.__getBamDictFromDirAndPattern, dirName, pattern, targetDir)
-        if not os.path.isfile(sampleFile):
-            sampleFile = sampleFile.split(',')
+    
+    def __getSampleListFromSampleFile(self, sampleFile):
         if isinstance(sampleFile, types.ListType):
             sampleList = [tuple(sampleName.split(';'))
                           for sampleName in sampleFile]
         else:
             sampleList = self.__getTumorAndNormalSampleListFromFile(sampleFile)
+        return sampleList
+    
+    def process(self, sampleFile, dirName, pattern, targetDir, refFile,
+                createPileUp=False, byChr=False, useJobArrays = True):
+        originalSampleFile = sampleFile
+        if targetDir:
+            targetDir = os.path.abspath(targetDir)
+        Utilities.mySystem('mkdir -p %s' % os.path.join(targetDir, 'tmp'))
+        dumpFileName = os.path.join(targetDir, 'tmp', '%s_bamDictSequenza.pyDump' % 
+                         os.path.basename(dirName.rstrip(os.path.sep)))
+        bamDict = Utilities.getFunctionResultWithCache(
+            dumpFileName,
+            self.__getBamDictFromDirAndPattern, dirName, pattern, targetDir)
+        if not os.path.isfile(sampleFile):
+            sampleFile = sampleFile.split(',')
+        sampleList = self.__getSampleListFromSampleFile(sampleFile)
         cmdList = []
         gcFile = self.__appendGcFileCreation(refFile, cmdList)
+        if useJobArrays:
+            cmd = self.__getSeqzFileCmd(originalSampleFile, dumpFileName, refFile, gcFile,
+                         targetDir, createPileUp, byChr, targetDir)
+            
+            memory = self.__getSeqzMemory()
+            cmdList = [(sampleFile, os.path.join(targetDir, 'sequenza'),
+                Cmd(cmd, memory = memory, jobName='seq[1-%d]' % len(sampleList)))]
+            return ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
+            cmdList, None, cluster=guessHpc())
         for tumorSample, normalSample in sampleList:
             print 'Processing sample pair (%s, %s)' % (tumorSample, normalSample)
             print bamDict
@@ -1797,7 +1856,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             seqzFile = self.__appendSeqzFileCreation(
                 tumorBam, normalBam, refFile, gcFile, cmdList, targetDir,
                 createPileUp, byChr)
-            self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
+            if not useJobArrays:
+                self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
         #print '#' * 100
         #for i,o,cmd in cmdList:
             #print i,o,cmd.cmd, cmd.nbCpus
@@ -1815,7 +1875,8 @@ class aCNViewer:
     def __init__(self, windowSize, percent, binDir=None, useShape=False,
                  sampleFile=None, sampleAliasFile=None, groupColumnName=None,
                  rLibDir=None, rColorFile=None, nbPermutations=None,
-                 outputFormat=None, nbCpus=None, memory=None, cleanDir=None):
+                 outputFormat=None, nbCpus=None, memory=None, cleanDir=None,
+                 useJobArrays=True):
         self.__windowSize = windowSize
         self.__percent = percent
         if binDir:
@@ -1846,6 +1907,8 @@ class aCNViewer:
         self.__nbCpus = nbCpus
         self.__memory = memory
         self.__shouldCleanDir = cleanDir
+        self.__useJobArrays = useJobArrays
+        self._fileToDelList = []
         
     def __writeHistLineFromCov(self, cov, nbSamples, ploidyDict,
                                outFh, keyList):
@@ -1859,6 +1922,8 @@ class aCNViewer:
         totalNb = 0
         for key in keyList:
             sampleList = countDict[key]
+            if not sampleList:
+                continue
             value = 100. * len(sampleList) / nbSamples
             totalNb += len(sampleList)
             if key < 0:
@@ -1946,7 +2011,7 @@ class aCNViewer:
             raise NotImplementedError
     
     def __createHeteroHomoHistDataFileFromCovList(self, covList, dumpFileName,
-                                        ploidyDict, nbSamples):
+                                        ploidyDict, nbSamples, chrSizeDict):
         histFileName = FileNameGetter(dumpFileName).get('_hist_hetHom.txt')
         outFh = CsvFileWriter(histFileName)
         outFh.write(['CNV key', 'chrName', 'start',
@@ -1956,25 +2021,48 @@ class aCNViewer:
             outFh.write([key, 1, 2, 1, 0, ''])
         prevChr = None
         for cov in covList:
+            self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
             if cov.pos.ctgId != prevChr:
-                outFh.write([keyList[0], cov.pos.ctgId, cov.pos.start / 2, cov.pos.start, 0, ''])
+                chrLength = chrSizeDict[cov.pos.ctgId]
+                outFh.write([keyList[0], cov.pos.ctgId, chrLength / 2,
+                             chrLength, 0, ''])
             self.__writeHeteroHomoHistLineFromCov(cov, nbSamples, ploidyDict,
                                                   outFh, keyList)
             prevChr = cov.pos.ctgId
         return histFileName
     
+    def __writeMissingChr(self, outFh, prevChr, cov, keyList, chrSizeDict):
+        chrStart = chrEnd = None
+        if prevChr is None and str(cov.pos.ctgId) != '1':
+            chrStart = 1
+            chrEnd = int(cov.pos.ctgId)
+        elif prevChr and prevChr != cov.pos.ctgId and int(cov.pos.ctgId) != int(prevChr) + 1:
+            chrStart = int(prevChr) + 1
+            chrEnd = cov.pos.ctgId
+        if chrStart:
+            for chrName in range(chrStart, chrEnd):
+                chrLength = chrSizeDict[str(chrName)]
+                outFh.write([keyList[0], chrName, chrLength / 2,
+                             chrLength, 0, ''])
+    
     def __createHistDataFileFromCovList(self, covList, dumpFileName,
-                                        ploidyDict, nbSamples):
+                                        ploidyDict, nbSamples, chrSizeDict):
         histFileName = FileNameGetter(dumpFileName).get('_hist.txt')
         outFh = CsvFileWriter(histFileName)
         outFh.write(['CNV key', 'chrName', 'start',
                      'segmentLength', 'percentage', 'samples'])
         keyList = self.__getHistogramBreakList()
         keyList = range(1, 7) + range(-1, -5, -1)
+        for key in keyList:
+            outFh.write([key, 1, 2, 1, 0, ''])
         prevChr = None
+        chrList = range(1, 23)
         for cov in covList:
+            self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
             if cov.pos.ctgId != prevChr:
-                outFh.write([keyList[0], cov.pos.ctgId, cov.pos.start / 2, cov.pos.start, 0, ''])
+                chrLength = chrSizeDict[cov.pos.ctgId]
+                outFh.write([keyList[0], cov.pos.ctgId, chrLength / 2,
+                             chrLength, 0, ''])
             self.__writeHistLineFromCov(cov, nbSamples, ploidyDict,
                                                   outFh, keyList)
             prevChr = cov.pos.ctgId
@@ -1991,7 +2079,7 @@ class aCNViewer:
         return dumpFileName, covList, nbSamples
     
     def _plotHeteroHomoCNVs(self, ascatFile, centromereFile, targetDir,
-                            ploidyDict=None, ploidyFile=None):
+                            chrSizeDict, ploidyDict=None, ploidyFile=None):
         if not ploidyDict and ploidyFile:
             ploidyDict = self._getPloidyDictFromFile(ploidyFile)
         dumpFileName, covList, nbSamples = \
@@ -2001,7 +2089,8 @@ class aCNViewer:
          #'mediumseagreen', 'darkolivegreen4', 'steelblue4',
          #'royalblue4', 'purple', 'magenta']
         histFileName = self.__createHeteroHomoHistDataFileFromCovList(covList,
-                                    dumpFileName, ploidyDict, nbSamples)
+                                    dumpFileName, ploidyDict, nbSamples,
+                                    chrSizeDict)
         rFileName = self.__createHistRscriptFile(targetDir,
                         '.'.join(os.path.basename(histFileName).split('.')[:-1]),
                         histFileName,
@@ -2384,6 +2473,11 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
                                           isLOH=None):
         if len(segmentList) < 2:
             return
+        #print '.' * 50
+        #print 'i=%d' % i, len(segmentList), segmentList
+        #print segmentList[i]
+        #print segmentList[i-1]
+        #print '%' * 30
         sampleName1, chrName1, lastSegmentStart1, chrEnd1, defaultPloidy1 = \
             segmentList[i]
         sampleName0, chrName0, lastSegmentStart0, chrEnd0, defaultPloidy0 = \
@@ -2420,7 +2514,7 @@ and %s:%s\n%s' % (sampleName0, sampleName1, segmentList[i - 1],
                     newPloidy = ploidyList[0]
                 else:
                     print segmentList
-                    print ploidyDict
+                    print ploidyDict, ploidyList
                     raise NotImplementedError
         else:
             newPloidy = int(round((1. * defaultPloidy0 * segmentSize0 +
@@ -2900,7 +2994,9 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         while fh.hasLinesLeft():
             lineDict, sampleName = self.__getNextSampleLineDictAndSampleName(
                 fh)
-            defaultPloidy = ploidyDict.get(sampleName.split('.')[0], 2)
+            if _isCustom:
+                sampleName = sampleName.split('.')[0]
+            defaultPloidy = ploidyDict.get(sampleName, 2)
             if sampleName not in ploidyDict:
                 print 'Passing sample "%s"' % sampleName
                 continue
@@ -2911,7 +3007,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                 centromereDict, isLoh, mergeCentromereSegments)
 
             outFh.writeAllLinesAtOnce(segmentList)
-            matrixDict[sampleName.split('.')[0]] = \
+            matrixDict[sampleName] = \
                       [['%s:%d-%d' % (chrName, start, end), alleleNb]
                        for currentSampleName, chrName, start, end, alleleNb in
                        segmentList]
@@ -2948,8 +3044,10 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         # print len(header), header
         for splittedLine in fh:
             # print splittedLine
-            ploidyDict[splittedLine[sampleIdx].split(
-                '_')[0]] = int(splittedLine[ploidyIdx])
+            sampleName = splittedLine[sampleIdx]
+            if _isCustom:
+                sampleName = sampleName.split('_')[0]
+            ploidyDict[sampleName] = int(splittedLine[ploidyIdx])
         return ploidyDict
 
     def __getPloidyKeyFromPloidy(self, currentPloidy):
@@ -3246,6 +3344,10 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
             labelDict = {-4: 'expression("" <= -4)', 6: 'expression("" >= 6)'}
         maxValue = min(100, maxValue + 5)
         lohStr = lohGraphStr = ''
+        if lohToPlot == self._NONE or yLabel is None:
+            plotStr = ''
+            if not yLabel:
+                yLabel = '%copy number gain / loss'
         if lohHistFileName:
             lohPlotStr = 'geom_line(data=dataLoh2, aes(x=V1, y=V3, color = \
 "blue"), stat = "identity", size = 0.3)'
@@ -3269,16 +3371,12 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                 colorList = ['black', 'blue']
                 labelList = ['cn-LOH', 'LOH']
                 yLabel = '%copy number gain / loss, copy neutral LOH & LOH'
-            elif lohToPlot == self._NONE:
-                plotStr = ''
-                if not yLabel:
-                    yLabel = '%copy number gain / loss'
-            else:
+            elif lohToPlot != self._NONE:
                 raise NotImplementedError(
                     'unrecognized value "%s" for lohToPlot. Value should be \
 one of ("LOH", "cn-LOH", "both")' % lohToPlot)
             lohGraphStr = lohStr = ''
-            if lohToPlot != self._NONE:
+            if lohToPlot != self._NONE and lohHistFileName:
                 lohGraphStr = '+ %s + scale_colour_manual(values = %s, labels = \
     %s, name = "%s")' % (plotStr, R()._getStrFromList(colorList),
                          R()._getStrFromList(labelList), legendLabel)
@@ -3288,6 +3386,9 @@ read.table("%s")' % (os.path.abspath(lohHistFileName), os.path.abspath(lohHistFi
             # lohStr = 'lohDataFrame = data.frame(pos=c(%s), )' %
             # (','.join([str(start) for chrName, start, end, percent in
             # lohPointList]))
+        if yLabel is None:
+            print lohToPlot, lohHistFileName
+            raise NotImplementedError
         centroPosList = [125000000, 93300000, 91000000, 50400000, 48400000,
                          61000000, 59900000, 45600000, 49000000, 40200000,
                          53700000, 35800000, 17900000, 17600000, 19000000,
@@ -3404,7 +3505,8 @@ dev.off()
         lohDataDict2 = {}
         dataSize = None
         for sampleName, chrDict in matrixDict.iteritems():
-            sampleName = sampleName.split('.')[0]
+            if _isCustom:
+                sampleName = sampleName.split('.')[0]
             if _isCustom and sampleName[:2] == 'CS':  # or sampleName in NFPET:
                 continue
             currentDataList = matrixDict[sampleName]
@@ -3453,7 +3555,8 @@ dev.off()
         for sampleName, chrDict in matrixDict.iteritems():
             if sampleName[:2] == 'CS' or 'P51T' not in sampleName:
                 continue
-            sampleName = sampleName.split('.')[0]
+            if _isCustom:
+                sampleName = sampleName.split('.')[0]
             print 'Processing sample %s' % sampleName
             lohDataDict = {}
             lohList = lohMatrixDict.get(sampleName)
@@ -3548,18 +3651,21 @@ dev.off()
                                for i, shape in enumerate(shapeList)])
         return groupDict, group2Dict, colorDict, shapeDict, shapeDict2
 
-    def __createSegments(self, fileName, ploidyFile, write=True, suffix=None,
-                         shouldProcessFunc=None, targetDir=None):
+    def __createSegments(self, fileName, ploidyFile, write=True,
+                         shouldProcessFunc=None, targetFileName=None):
         fh = ReadFileAtOnceParser(fileName)
-        targetFileName = fileName + suffix
-        if targetDir:
-            targetFileName = os.path.join(targetDir, os.path.basename(targetFileName))
+        #targetFileName = fileName + suffix
+        #if targetDir:
+            #targetFileName = os.path.join(targetDir, os.path.basename(targetFileName))
         outFh = CsvFileWriter(targetFileName)
+        self._fileToDelList.append(targetFileName)
         outFh.write(fh.getSplittedLine())
         ploidyDict = self._getPloidyDictFromFile(ploidyFile)
         segmentList = []
         for splittedLine in fh:
-            sampleName = splittedLine[0].split('.')[0]
+            sampleName = splittedLine[0]
+            if _isCustom:
+                sampleName = sampleName.split('.')[0]
             # if sampleName[:2] == 'CS':
             # continue
             if sampleName not in ploidyDict:
@@ -3579,17 +3685,17 @@ dev.off()
             return segmentList
 
     def _createLOHneutralSegments(self, fileName, ploidyFile, write=True,
-                                  targetDir=None):
+                                  targetFileName=None):
         def isCnLoh(nMin, nMaj, ploidy):
             return (nMaj, nMin) in [(-ploidy, 0), (ploidy, 0)]
         return self.__createSegments(fileName, ploidyFile, write,
-                                     '_lohNeutral.txt', isCnLoh, targetDir)
+                                     isCnLoh, targetFileName)
 
-    def _createLOH_Segments(self, fileName, ploidyFile, write=True, targetDir=None):
+    def _createLOH_Segments(self, fileName, ploidyFile, write=True, targetFileName=None):
         def isLoh(nMin, nMaj, ploidy):
             return 0 in [nMaj, nMin]
-        return self.__createSegments(fileName, ploidyFile, write, '_loh.txt',
-                                     isLoh, targetDir = targetDir)
+        return self.__createSegments(fileName, ploidyFile, write,
+                                     isLoh, targetFileName = targetFileName)
 
     def __getGroupStrColSideColorsStrAndLegendStrForHeatmap(self, groupDict,
                                                             groupColName=None,
@@ -4658,6 +4764,7 @@ for (obj in allFunctionList){
             '_%s.txt' % os.path.basename(centromereFile).split('.')[0])
         if targetDir:
             outFileName = os.path.join(targetDir, os.path.basename(outFileName))
+        self._fileToDelList.append(outFileName)
         outFh = CsvFileWriter(outFileName)
         fh = ReadFileAtOnceParser(ascatFile)
         outFh.write(fh.getSplittedLine())
@@ -4731,6 +4838,8 @@ for (obj in allFunctionList){
     def __cleanDir(self, tmpDir):
         if not self.__shouldCleanDir:
             return
+        if self._fileToDelList:
+            Utilities.mySystem('rm %s' % ' '.join(self._fileToDelList))
         for pattern in ['split', 'normalized', '*.PCFed.txt', '*.LogR.txt',
                         '*.BAF.txt', '*_extracted.txt', 'sample_names.txt',
                         'tQN_parameters.txt', 'lib', '*.acf.txt', 'SNPpos_*',
@@ -4785,7 +4894,7 @@ for (obj in allFunctionList){
                                          keepGenomicPosForHistogram,
                                          plotSubgroups, beadchip, refFileName,
                                          createMpileUp, byChr, pattern,
-                                         samplePairFile):
+                                         samplePairFile, jobDict):
         cmd = '%s %s --fileType Sequenza -b %s -f %s -t %s -c %s -C %s -r %s \
 --samplePairFile %s -u %d --histogram %d -m %d --dendrogram %d --plotAll %d \
 -M %d -N %d --heatmap %d --labRow %d --labCol %d --keepCentromereData %d \
@@ -4865,9 +4974,13 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
             cmd += ' --pattern %s' % pattern
         if samplePairFile:
             cmd += ' --samplePairFile %s' % samplePairFile
-        cmdList = [(chrFile, os.path.join(os.path.dirname(targetDir), 'aCNViewer'),
-                    Cmd('unset PYTHONPATH && ' + cmd, memory = 10))]
-        ProcessFileFromCluster()._runCmdList(cmdList, chrFile, guessHpc())
+        jobIdList = None
+        if jobDict:
+            jobIdList = jobDict.values()
+        cmdList = [(None, os.path.join(os.path.dirname(targetDir), 'aCNViewer'),
+                    Cmd('unset PYTHONPATH && ' + cmd, memory = 10,
+                        jobIdList=jobIdList))]
+        ProcessFileFromCluster()._runCmdList(cmdList, None, guessHpc())
     
     def __runGISTIC(self, ascatFile, targetDir, refBuild, geneGistic, smallMem,
                     broad, brLen, conf, armPeel, saveGene, gcm):
@@ -4905,6 +5018,30 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
             raise
         #print 'GISTIC err = [%s]' % stderr.read()
         print 'GISTIC out = [%s]' % stdout.read()
+        
+    def __convertPennCNVfileIntoAscatFormat(self, fileName):
+        outFileName = FileNameGetter(fileName).get('_ascat.txt')
+        outFh = CsvFileWriter(outFileName)
+        fh = open(fileName)
+        for line in fh:
+            splittedLine = line.split()
+            sampleName = splittedLine[4]
+            chrName, start = splittedLine[0].split(':')
+            if chrName[:3] == 'chr':
+                chrName = chrName[3:]
+            start, end = start.split('-')
+            copyNb = int(splittedLine[3].split('cn=')[-1])
+            outFh.write([sampleName, chrName, int(start), int(end), copyNb, 0])
+        outFh.close()
+        sortedOutFileName = FileNameGetter(outFileName).get('_sorted.txt')
+        fh = Sort()._sort(outFileName, '-k 1,1 -k 2,2 -V -s -k 3,3n -k 4,4n', scriptName = FileNameGetter(sortedOutFileName).get('sh'))
+        outFh = CsvFileWriter(sortedOutFileName)
+        outFh.write(['sample', 'chr', 'startpos', 'endpos', 'nMajor', 'nMinor'])
+        for splittedLine in ReadFileAtOnceParser(fh):
+            outFh.write(splittedLine)
+        outFh.close()
+        Utilities.mySystem('mv %s %s' % (sortedOutFileName, outFileName))
+        return outFileName
         
     def __getChrSizeFileCentroFileAndRefFromBuild(self, refBuild, chrSizeFile, centroFile, refFileName):
         genomeDir = os.path.join(os.path.dirname(self.__binDir), 'genomes', refBuild)
@@ -4965,15 +5102,16 @@ samplePairFile should be set (option "--samplePairFile")')
                                                currentTargetDir,
                                                refFileName,
                                                createMpileUp,
-                                               byChr)
+                                               byChr, self.__useJobArrays)
                 if not isinstance(guessHpc(), ThreadManager):
-                    if jobDict:
-                        print '\n'
-                        print '#' * 100
-                        print 'You have submitted jobs to a cluster. \
+                    if not self.__useJobArrays:
+                        if jobDict:
+                            print '\n'
+                            print '#' * 100
+                            print 'You have submitted jobs to a cluster. \
 Please re-run the same command when all the submitted jobs are finished.'
-                        print '#' * 100
-                        sys.exit(0)
+                            print '#' * 100
+                            sys.exit(0)
                     else:
                         self.__submitCurrentAnalysisToCluster(ascatFile,
             chrFile, targetDir, ploidyFile, histogram, merge, dendrogram,
@@ -4983,7 +5121,7 @@ Please re-run the same command when all the submitted jobs are finished.'
             labRow, labCol, groupLegendPos, chrLegendPos,
             keepCentromereData, lohToPlot, useRelativeCopyNbForClustering,
             keepGenomicPosForHistogram, plotSubgroups, beadchip,
-            refFileName, createMpileUp, byChr, pattern, samplePairFile)
+            refFileName, createMpileUp, byChr, pattern, samplePairFile, jobDict)
                         return
                 ascatFile = currentTargetDir
             sequenzaTargetDir = targetDir
@@ -4995,6 +5133,8 @@ Please re-run the same command when all the submitted jobs are finished.'
             ascatFile = \
                 Utilities.getFunctionResultWithCache(dumpFileName,
                                                      *paramList)
+        elif Utilities.getFileExtension(ascatFile) == 'rawcnv':
+            ascatFile = self.__convertPennCNVfileIntoAscatFormat(ascatFile)
         else:
             paramList = [RunAscat(self.__binDir, self.__rLibDir).process,
                          ascatFile, self.__sampleFile,
@@ -5036,7 +5176,8 @@ Please re-run the same command when all the submitted jobs are finished.'
                     self.__getDumpFileNameCovListAndNbSamplesFromAscatFile(
                         ascatFile, centromereFile, targetDir)
         histFileName = self.__createHistDataFileFromCovList(covList,
-                                    dumpFileName, ploidyDict, nbSamples)
+                                    dumpFileName, ploidyDict, nbSamples,
+                                    chrSizeDict)
         cnLohFileName = self.__createLohPointFile(cnLohFileName, nbSamples,
                                                   centromereFile)
         lohFileName = self.__createLohPointFile(lohFileName, nbSamples,
@@ -5056,18 +5197,18 @@ Please re-run the same command when all the submitted jobs are finished.'
                         matrixDict, ploidyDict, groupDict, group2Dict,
                         lohToPlot, plotSubgroups, centromereFile,
                         useFullResolutionForHist):
-        lohFileName = ascatFile + '_lohNeutral.txt'
+        lohFileName = FileNameGetter(ascatFile).get('_lohNeutral.txt')
         if targetDir:
             lohFileName = os.path.join(targetDir, os.path.basename(lohFileName))
         if not os.path.isfile(lohFileName):
             self._createLOHneutralSegments(ascatFile, ploidyFile,
-                                           targetDir=targetDir)
-        lohFileName2 = ascatFile + '_loh.txt'
+                                           targetFileName=lohFileName)
+        lohFileName2 = FileNameGetter(ascatFile).get('_loh.txt')
         if targetDir:
             lohFileName2 = os.path.join(targetDir,
                                         os.path.basename(lohFileName2))
         if not os.path.isfile(lohFileName2):
-            self._createLOH_Segments(ascatFile, ploidyFile, targetDir=targetDir)
+            self._createLOH_Segments(ascatFile, ploidyFile, targetFileName=lohFileName2)
         if useFullResolutionForHist:
             self.__plotHistogramWithoutSegmentation(ascatFile, targetDir,
                         ploidyFile, centromereDict,
@@ -5205,7 +5346,7 @@ Please re-run the same command when all the submitted jobs are finished.'
         if not os.path.isfile(ascatFile) or \
            (not self.__isFileInLrrBafFormat(ascatFile) and not
                 self.__isFileInAscatFormat(ascatFile)):
-            ascatFile, dumpFileName = self.__getAscatFileAndDumpFileName(
+            ascatAndDump = self.__getAscatFileAndDumpFileName(
                 ascatFile, chrFile, targetDir, ploidyFile, histogram, merge,
                 dendrogram, plotAll, centromereFile, defaultGroupValue,
                 mergeCentromereSegments, gcFile, platform, libDir, gw6Dir,
@@ -5215,14 +5356,19 @@ Please re-run the same command when all the submitted jobs are finished.'
                 useRelativeCopyNbForClustering, keepGenomicPosForHistogram,
                 plotSubgroups, beadchip, refFileName, createMpileUp,
                 byChr, pattern, samplePairFile)
+            if ascatAndDump is None:
+                return
+            ascatFile, dumpFileName = ascatAndDump
         if not targetDir:
             targetDir = os.path.dirname(ascatFile)
         if not ploidyFile:
-            ploidyFile = aCNViewer(None, 10, self.__binDir, self.__useShape,
+            obj = aCNViewer(None, 10, self.__binDir, self.__useShape,
                                    self.__sampleFile, self.__sampleAliasFile,
-                                   self.__groupColumnName)._createPloidyFile(
+                                   self.__groupColumnName)
+            ploidyFile = obj._createPloidyFile(
                                        ascatFile, chrFile, targetDir, None,
                                        centromereFile, mergeCentromereSegments)
+            self._fileToDelList += obj._fileToDelList
             # ploidyDict = self._getPloidyDictFromFile(ploidyFile)
             print 'Using ploidyFile = %s' % ploidyFile
         if runGISTIC:
@@ -5266,7 +5412,7 @@ Please re-run the same command when all the submitted jobs are finished.'
                                  useFullResolutionForHist)
         if plotAll or homoHeteroCNVs:
             self._plotHeteroHomoCNVs(ascatFile, centromereFile, targetDir,
-                                     ploidyDict, ploidyFile)
+                                     chrSizeDict, ploidyDict, ploidyFile)
         if not self.__sampleFile:
             self.__cleanDir(targetDir)
             return
@@ -5331,10 +5477,12 @@ class TestACNViewer:
                    
                    '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_OTHER_OUT --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --outputFormat "heat:bmp;hist:tiff;dend:pdf(width=10,height=8);hetHom:jpg"',
                    
-                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_RCOLOR --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --rColorFile aCNViewer_DATA/rColor.txt'
+                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_RCOLOR --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --rColorFile aCNViewer_DATA/rColor.txt',
+                   
+                  '-f aCNViewer_DATA/pennCNV/hapmap3.rawcnv -t TEST_PENN_CNV --refBuild hg18 -b aCNViewer_DATA/bin --lohToPlot none' 
                    ]
         if not fastTest:
-            cmdList += ['-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/ --gw6Dir aCNViewer_DATA/snpArrays250k_sty/gw6/',
+            cmdList += ['-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/',
                         
                         '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1 --smallMem %d' % smallMem,
                         
@@ -5372,6 +5520,10 @@ class TestACNViewer2(unittest.TestCase):
         self.__checkNbDirs(outDir, nbExpectedDirs)
         return outDir
         
+    def testPennCNV(self):
+        outDir = self.__testBase('TEST_PENN_CNV', 2)
+        self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
+    
     def testAffy(self):
         outDir = self.__testBase('TEST_AFFY', 2)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.png'))), 12)
@@ -5616,7 +5768,7 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                   options.sampleAliasFile, options.groupColumnName,
                   options.rLibDir, options.rColorFile, options.nbPermutations,
                   options.outputFormat, options.nbCpus, options.memory,
-                  options.cleanDir).\
+                  options.cleanDir, options.useJobArrays).\
         process(
                       options.fileName, options.chrFile, options.targetDir,
                       options.ploidyFile, options.histogram, options.merge,
@@ -5970,6 +6122,10 @@ the output folder'),
 indicating tumor bam file'),
                            
                            CommandParameter('useFullResolutionForHist',
+                                            CommandParameterType.BOOLEAN,
+                                            defaultValue=True),
+                           
+                           CommandParameter('useJobArrays',
                                             CommandParameterType.BOOLEAN,
                                             defaultValue=True),
                            
