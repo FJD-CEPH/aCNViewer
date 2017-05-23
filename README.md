@@ -16,6 +16,11 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
         - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**):
           * [all plots](#allPlots)
           * [use custom colors for plots](#customColors)
+          * [GISTIC example](#gisticExample)
+          * [heatmap using relative copy number values](#heatmapRel)
+          * [heatmap with CNVs ordered by genomic position](heatmapGenPos)
+          * [heatmap using copy number values](#heatmapCNV)
+          * [dendrogram example](#dendroExample)
           * [custom graphical output formats](#outputFormatExamples)
         - [Test using Affymetrix Cel files](#testaffycel)
       + [Illumina](#illumina)
@@ -57,7 +62,7 @@ aCNViewer can also be installed from its source by:
 
 * APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
 
-* a recent version of R with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) installed for generating the different graphical outputs:
+* a recent version of R (version &ge; 3.2) with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) installed for generating the different graphical outputs:
   + [ASCAT](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) (will be automatically installed if not already installed) if you are analyzing raw SNP array data
   + [Sequenza](https://cran.r-project.org/web/packages/sequenza/index.html) and [samtools](https://sourceforge.net/projects/samtools/files/latest/download?source=files) if you are analyzing paired (tumor / normal) bams
   + [plotrix](https://cran.r-project.org/web/packages/plotrix/index.html) for plotting dendrograms (will be automatically installed if not already installed)
@@ -81,9 +86,9 @@ aCNViewer can also be installed from its source by:
 
 ## Tutorial
 
-The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. All examples of this tutorial can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0]`. 
+The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. All examples of this tutorial can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGistic 1]`. 
 
-If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 5GB of RAM vs 50GB of RAM at the expense of a longer running time.
+If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). If `--runGistic` is `1`, GISTIC will be tested and if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 5GB of RAM vs 50GB of RAM at the expense of a longer running time.
 
 
 ### Glossary:
@@ -107,7 +112,7 @@ Download the test data set [aCNViewer_DATA.tar.gz (~5GB and ~20GB uncompressed)]
 #### Affymetrix
 
 ##### TestAffyAscat
-<a id="allPlots"></a>Generate all available plots from ASCAT segment files with a window size of 2Mbp:<br>
+<a id="allPlots"></a>Generate all available plots from ASCAT segment files using base resolution for the quantitative histograms and using a window size of 2Mbp for the other plots:<br>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
 
@@ -161,7 +166,7 @@ See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE --refBuild REF_BUILD -b` <a href="#binDir">`BIN_DIR`</a> `[--histogram HISTOGRAM --lohToPlot LOH_TO_PLOT --useFullResolutionForHist USE_FULL_RESOLUTION_FOR_HIST] [-w WINDOW_SIZE -c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE] [--runGISTIC RUN_GISTIC --geneGistic GENE_GISTIC --smallMem SMALL_MEM --broad BROAD --brLen BR_LEN --conf CONF --armPeel ARM_PEEL --saveGene SAVE_GENE --gcm GCM]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE --refBuild REF_BUILD -b` <a href="#binDir">`BIN_DIR`</a> `[--histogram HISTOGRAM --lohToPlot LOH_TO_PLOT --useFullResolutionForHist USE_FULL_RESOLUTION_FOR_HIST] [-c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT --ploidyFile PLOIDY_FILE] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE] [--runGISTIC RUN_GISTIC --geneGistic GENE_GISTIC --smallMem SMALL_MEM --broad BROAD --brLen BR_LEN --conf CONF --armPeel ARM_PEEL --saveGene SAVE_GENE --gcm GCM]`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
@@ -175,17 +180,18 @@ where:
 <a id="generalPlotOptions"></a>**The following options are general plotting options:**
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length. When `REF_BUILD` is set, `CHR_SIZE_FILE` is automatically set to `aCNViewer_DATA/genomes/REF_BUILD.chrom.sizes`.
 * <a id="centromereFile"></a>`CENTROMERE_FILE`: file giving the centromere bounds. Can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`. When `REF_BUILD` is set, `CENTROMERE_FILE` is automatically set to `aCNViewer_DATA/genomes/REF_BUILD.centro.txt`.
-* <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100
+* <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100. If `WINDOW_SIZE` and `PERCENTAGE` are null then `WINDOW_SIZE` is set to 2Mb by default.
 * <a id="sampleFile"></a>`SAMPLE_FILE`: a tab-delimited file that should contain a column named `Sample` with the name of each sample and at least another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
 * <a id="phenotypicColumnName"></a>`PHENOTYPIC_COLUMN_NAME` is optional and refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature defined in `SAMPLE_FILE` will be generated.
 * <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
 * `PLOT_ALL`: specify whether all available plots should be generated. The default value is `1`.
 * `OUTPUT_FORMAT`: allow to customize output formats for the different types of available plots (histograms, heatmaps and dendrograms). Examples of use can be found [above](#outputFormatExamples). The default value is `hist:png(width=4000,height=1800,res=300);hetHom:png(width=4000,height=1800,res=300);dend:png(width=4000,height=2200,res=300);heat:pdf(width=10,height=12)`.
+* `PLOIDY_FILE`: custom ploidy values for each sample. Can either be a tab-delimited file with at least 2 columns: "sample" and "ploidy" or an integer which will set the same ploidy to all samples. By default, the ploidy is calculated using the CNV file segmented in fragments of 10% of chromosomal length and its value will be the most represented CNV value for each sample.
 
 <a id="histogramOptions"></a>**The following options are histogram specific**:
 * `HISTOGRAM`: specify whether an histogram should be generated. The default value is `0` but its value is overriden to `1` when option `--plotAll 1` is set.
 * <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
-* `USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
+* <a id="useFullRes"></a>`USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
 
 
 <a id="gisticOptions"></a>**The following options are GISTIC options** (more details can be found [here](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm)):
@@ -386,6 +392,11 @@ When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CN
 
 
 #### GISTIC
+
+For the full list of GISTIC output files, please refer to the section `Output Files` of the following [website](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm). Here are the main output files of interest:
+
+| File | Description |
+| --- | --- |
 
 
 

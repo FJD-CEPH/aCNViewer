@@ -315,6 +315,9 @@ class RunTQN:
 
 
 class DefaultPloidyDict(dict):
+    def __init__(self, ploidy=2):
+        self.__ploidy = int(ploidy)
+        dict.__init__(self)
 
     def has_key(self, key):
         return True
@@ -323,7 +326,10 @@ class DefaultPloidyDict(dict):
         return self.has_key(key)
     
     def __getitem__(self, key):
-        return 2
+        return self.__ploidy
+    
+    def get(self, key, d=None):
+        return self.__ploidy
 
 
 class RunAscat:
@@ -1732,6 +1738,9 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             sys.executable, self.__getSequenzaUtils(), progName, normalBam,
             tumorBam, gcFile, optionStr, outFileName,
             FileNameGetter(outFileName).get('err'))
+        print '#' * 50
+        print outFileName, FileNameGetter(outFileName).get('err')
+        print '%' * 30
         #Utilities.mySystem(cmd, scriptFile)
         Utilities.mySystem(cmd)
         #if createPileUp:
@@ -1768,6 +1777,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
     def _createSeqzFile(self, tumorBam, normalBam, refFile, gcFile,
                         outFileName, createPileUp=False, byChr=False):
         taskIdx = _getTaskIdx()
+        #print taskIdx, tumorBam, normalBam, refFile, gcFile, outFileName, createPileUp, byChr
+        #sys.exit(-1)
         if taskIdx is not None:
             targetDir = outFileName
             sampleList = self.__getSampleListFromSampleFile(tumorBam)
@@ -1837,7 +1848,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         sampleList = self.__getSampleListFromSampleFile(sampleFile)
         cmdList = []
         gcFile = self.__appendGcFileCreation(refFile, cmdList)
-        if useJobArrays:
+        cluster = guessHpc(nbCpus=self.__nbCpus)
+        if getClassName(cluster) != 'ThreadManager' and useJobArrays:
             cmd = self.__getSeqzFileCmd(originalSampleFile, dumpFileName, refFile, gcFile,
                          targetDir, createPileUp, byChr, targetDir)
             
@@ -1845,7 +1857,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             cmdList = [(sampleFile, os.path.join(targetDir, 'sequenza'),
                 Cmd(cmd, memory = memory, jobName='seq[1-%d]' % len(sampleList)))]
             return ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-            cmdList, None, cluster=guessHpc())
+            cmdList, None, cluster=cluster)
         for tumorSample, normalSample in sampleList:
             print 'Processing sample pair (%s, %s)' % (tumorSample, normalSample)
             print bamDict
@@ -1856,14 +1868,14 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             seqzFile = self.__appendSeqzFileCreation(
                 tumorBam, normalBam, refFile, gcFile, cmdList, targetDir,
                 createPileUp, byChr)
-            if not useJobArrays:
+            if getClassName(cluster) == 'ThreadManager' or not useJobArrays:
                 self.__appendSequenza(seqzFile, byChr, refFile, cmdList)
         #print '#' * 100
         #for i,o,cmd in cmdList:
             #print i,o,cmd.cmd, cmd.nbCpus
         #print '#' * 40
         return ProcessFileFromCluster(binPath=self.__binDir)._runCmdList(
-            cmdList, refFile, cluster=guessHpc(nbCpus=self.__nbCpus))
+            cmdList, refFile, cluster=cluster)
 
 
 class aCNViewer:
@@ -3031,6 +3043,8 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                           splittedLine1[-2:], splittedLine2[-2:]
 
     def _getPloidyDictFromFile(self, fileName):
+        if fileName and not os.path.isfile(fileName) and ValueParser().isNb(fileName):
+            return DefaultPloidyDict(fileName)
         ploidyDict = {}
         fh = ReadFileAtOnceParser(fileName)
         header = fh.getSplittedLine()
@@ -3336,6 +3350,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                                 yLabel=None, colorSection=None, rSuffix=None):
         # print 'MAX = [%f]' % maxValue
         # print lohPointList
+        print 'LO', lohToPlot
         if not lohToPlot:
             lohToPlot = self._cnLOH
         if not breakList:
@@ -3553,7 +3568,7 @@ dev.off()
                                   lohMatrixDict, centromereDict):
         cluster = ThreadManager(_getNbAvailableCpus())
         for sampleName, chrDict in matrixDict.iteritems():
-            if sampleName[:2] == 'CS' or 'P51T' not in sampleName:
+            if _isCustom and (sampleName[:2] == 'CS' or 'P51T' not in sampleName):
                 continue
             if _isCustom:
                 sampleName = sampleName.split('.')[0]
@@ -3597,6 +3612,8 @@ dev.off()
 
     def _getGroupAndColorCodeDictFromFile(self, fileName,
                                           defaultGroupValue=None):
+        if not os.path.isfile(fileName):
+            raise NotImplementedError
         fh = ReadFileAtOnceParser(fileName)
         header = fh.getSplittedLine()
         isCustom = False
@@ -4547,16 +4564,16 @@ for (obj in allFunctionList){
         outFh.write(outHeader)
         print 'ploidyFile = ', ploidyFile
         #raise NotImplementedError
-        if ploidyFile:
+        if ploidyFile and os.path.isfile(ploidyFile):
             fh = ReadFileAtOnceParser(ploidyFile)
             header = fh.getSplittedLine()
             groupIdx, sampleIdx = self.__getGroupAndSampleIdxFromHeader(header)
             lineDict = dict([[splittedLine[sampleIdx].split(
                 '_')[0], splittedLine] for splittedLine in fh])
         for sampleName in Utilities.getOrderedKeys(matrixDict):
-            if sampleName[:2] == 'CS':
+            if _isCustom and sampleName[:2] == 'CS':
                 continue
-            if ploidyFile:
+            if ploidyFile and os.path.isfile(ploidyFile):
                 splittedLine = lineDict[sampleName]
                 if groupIdx is not None and not splittedLine[groupIdx]:
                     continue
@@ -4595,7 +4612,8 @@ for (obj in allFunctionList){
         cluster = ThreadManager(_getNbAvailableCpus())
         matrixDict = self.__getSubsetMatrixForSamples(
             matrixDict, [sampleName for sampleName in matrixDict if
-                         sampleName[:2] != 'CS'])
+                         (_isCustom and sampleName[:2] != 'CS') or
+                         (not _isCustom)])
         paramList = [(None, '')]
         if group2Dict and plotSubgroups:
             paramList += [(group2Dict.getall((3, 'PET')) +
@@ -4844,7 +4862,8 @@ for (obj in allFunctionList){
                         '*.BAF.txt', '*_extracted.txt', 'sample_names.txt',
                         'tQN_parameters.txt', 'lib', '*.acf.txt', 'SNPpos_*',
                         'lrrBaf_?.ploidy.txt', 'lrrBaf_?.R', 'lrrBaf_?.txt',
-                        'matrix*txt', '*_10pc.txt', '*_lrrBaf.txt']:
+                        #'matrix*txt',
+                        '*_10pc.txt', '*_lrrBaf.txt']:
             Utilities.mySystem('rm -rf %s' % os.path.join(tmpDir, pattern))
         targetDir = os.path.dirname(tmpDir)
         self.__cleanSequenzaFolder(tmpDir)
@@ -5331,8 +5350,11 @@ Please re-run the same command when all the submitted jobs are finished.'
                 refBuild=None, geneGistic=None, smallMem=None, broad=None,
                 brLen=None, conf=None, armPeel=None, saveGene=None, gcm=None,
                 homoHeteroCNVs=False, useFullResolutionForHist=None):
+        print 'DDD', lohToPlot
         if not targetDir:
             targetDir = 'OUT'
+        if not self.__windowSize and not self.__percent:
+            self.__windowSize = 2000000
         if refBuild:
             chrFile, centromereFile, refFileName = self.__getChrSizeFileCentroFileAndRefFromBuild(refBuild, chrFile, centromereFile, refFileName)
         originalTargetDir = targetDir
@@ -5458,7 +5480,7 @@ Please re-run the same command when all the submitted jobs are finished.'
 import unittest
 
 class TestACNViewer:
-    def process(self, targetDir, fastTest, smallMem):
+    def process(self, targetDir, fastTest, smallMem, runGistic = True):
         cmdList = ['-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt',
                    
                    '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP1 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1',
@@ -5479,16 +5501,19 @@ class TestACNViewer:
                    
                    '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_RCOLOR --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --rColorFile aCNViewer_DATA/rColor.txt',
                    
-                  '-f aCNViewer_DATA/pennCNV/hapmap3.rawcnv -t TEST_PENN_CNV --refBuild hg18 -b aCNViewer_DATA/bin --lohToPlot none' 
-                   ]
+                  '-f aCNViewer_DATA/pennCNV/hapmap3.rawcnv -t TEST_PENN_CNV --refBuild hg18 -b aCNViewer_DATA/bin --lohToPlot none',
+                   
+                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_PLOIDY --refBuild hg18 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --ploidyFile 4',
+                   
+                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_PERCENT --refBuild hg18 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -p 5']
         if not fastTest:
             cmdList += ['-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/',
-                        
-                        '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1 --smallMem %d' % smallMem,
                         
                         '-f aCNViewer_DATA/wes/bams/ -t TEST_WES_RAW --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --fileType Sequenza --samplePairFile aCNViewer_DATA/wes/bams/sampleFile.txt -n 4',
                         
                         '-f aCNViewer_DATA/snpArrayIllu660k/GSE47357_Matrix_signal_660w.txt.gz -t TEST_ILLU --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --probeFile aCNViewer_DATA/snpArrayIllu660k/Human660W-Quad_v1_H_SNPlist.txt --platform Illumina660k --beadchip "human660w-quad"']
+            if runGistic:
+                cmdList.append('-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1 --smallMem %d' % smallMem)
         cluster = guessHpc()
         Utilities.mySystem('mkdir -p %s' % targetDir)
         inFile = os.path.join(targetDir, 'inFile.txt')
@@ -5519,18 +5544,40 @@ class TestACNViewer2(unittest.TestCase):
         self.assertFalse(os.path.isdir(os.path.join(outDir, 'tmp')))
         self.__checkNbDirs(outDir, nbExpectedDirs)
         return outDir
-        
-    def testPennCNV(self):
-        outDir = self.__testBase('TEST_PENN_CNV', 2)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
     
-    def testAffy(self):
-        outDir = self.__testBase('TEST_AFFY', 2)
+    def __testAffy(self, dirName):
+        outDir = self.__testBase(dirName, 2)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.png'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.pdf'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.png'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.pdf'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
+        return outDir
+    
+    def __checkPloidyFile(self, outDir, ploidy, nb):
+        ploidyFile = os.path.join(outDir, 'GSE9845_lrr_baf_segments_10pc_ploidy.txt')
+        fh = ReadFileAtOnceParser(ploidyFile)
+        header = fh.getSplittedLine()
+        totalNb = 0
+        for splittedLine in fh:
+            if int(splittedLine[-1]) == ploidy:
+                totalNb += 1
+        self.assertEqual(totalNb, nb)
+    
+    def testDefaultPloidy(self):
+        outDir = self.__testAffy('TEST_AFFY_PLOIDY', 2)
+        self.assertEqual(os.path.isfile(os.path.join(outDir, 'GSE9845_lrr_baf_segments_10pc_ploidy.txt')), False)
+    
+    def testPercent(self):
+        outDir = self.__testAffy('TEST_AFFY_PERCENT', 2)
+        
+    
+    def testPennCNV(self):
+        outDir = self.__testBase('TEST_PENN_CNV', 0)
+        self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
+    
+    def testAffy(self):
+        self.__testAffy('TEST_AFFY')
         
     def testAffyPdf(self):
         outDir = self.__testBase('TEST_AFFY_PDF', 2)
@@ -5560,12 +5607,7 @@ class TestACNViewer2(unittest.TestCase):
         self.assertTrue(len(content) > 0)
         
     def testAffyRcolor(self):
-        outDir = self.__testBase('TEST_AFFY_RCOLOR', 2)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.png'))), 12)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.pdf'))), 12)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.png'))), 12)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.pdf'))), 12)
-        self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
+        outDir = self.__testAffy('TEST_AFFY_RCOLOR')
         self.__checkKeywordIsInFile('yellow', outDir, '*hist*.R')
         self.__checkKeywordIsInFile('lightblue', outDir, '*dendro*.R')
         self.__checkKeywordIsInFile('lightblue', outDir, '*heatmap*.R')
@@ -5761,7 +5803,7 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                                                  options.hasChrPrefix)
     elif options.progName == 'testAll':
         TestACNViewer().process(options.targetDir, options.fastTest,
-                                options.smallMem)
+                                options.smallMem, options.runGistic)
     else:
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,
