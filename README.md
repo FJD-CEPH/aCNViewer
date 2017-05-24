@@ -36,7 +36,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     * [ASCAT](#ascat)
     * [GISTIC](#gistic)
     * [Sequenza](#sequenza)
-    * [](HistogramOutputs)
+    * [Histogram](HistogramOutputs)
     * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
   
 
