@@ -4862,8 +4862,7 @@ for (obj in allFunctionList){
                         '*.BAF.txt', '*_extracted.txt', 'sample_names.txt',
                         'tQN_parameters.txt', 'lib', '*.acf.txt', 'SNPpos_*',
                         'lrrBaf_?.ploidy.txt', 'lrrBaf_?.R', 'lrrBaf_?.txt',
-                        #'matrix*txt',
-                        '*_10pc.txt', '*_lrrBaf.txt']:
+                        '*10pc.txt', '*_lrrBaf.txt']:
             Utilities.mySystem('rm -rf %s' % os.path.join(tmpDir, pattern))
         targetDir = os.path.dirname(tmpDir)
         self.__cleanSequenzaFolder(tmpDir)
@@ -5038,8 +5037,10 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
         #print 'GISTIC err = [%s]' % stderr.read()
         print 'GISTIC out = [%s]' % stdout.read()
         
-    def __convertPennCNVfileIntoAscatFormat(self, fileName):
+    def __convertPennCNVfileIntoAscatFormat(self, fileName, targetDir):
         outFileName = FileNameGetter(fileName).get('_ascat.txt')
+        if targetDir:
+            outFileName = os.path.join(targetDir, os.path.basename(outFileName))
         outFh = CsvFileWriter(outFileName)
         fh = open(fileName)
         for line in fh:
@@ -5153,7 +5154,7 @@ Please re-run the same command when all the submitted jobs are finished.'
                 Utilities.getFunctionResultWithCache(dumpFileName,
                                                      *paramList)
         elif Utilities.getFileExtension(ascatFile) == 'rawcnv':
-            ascatFile = self.__convertPennCNVfileIntoAscatFormat(ascatFile)
+            ascatFile = self.__convertPennCNVfileIntoAscatFormat(ascatFile, targetDir)
         else:
             paramList = [RunAscat(self.__binDir, self.__rLibDir).process,
                          ascatFile, self.__sampleFile,
@@ -5505,7 +5506,7 @@ class TestACNViewer:
                    
                    '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_PLOIDY --refBuild hg18 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --ploidyFile 4',
                    
-                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_PERCENT --refBuild hg18 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -p 5']
+                   '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_PERCENT --refBuild hg18 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt -p 5 --useFullResolutionForHist 0']
         if not fastTest:
             cmdList += ['-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/',
                         
@@ -5536,8 +5537,45 @@ class TestACNViewer:
 
         
 class TestACNViewer2(unittest.TestCase):
+    def __getAveragePloidyFromMatrixFile(self, matrixFile):
+        fh = ReadFileAtOnceParser(matrixFile)
+        header = fh.getSplittedLine()
+        totalNb = 0
+        ploidy = 0.
+        for splittedLine in fh:
+            for currentPloidy in splittedLine[1:]:
+                ploidy += int(currentPloidy)
+                totalNb += 1
+        return ploidy / totalNb
+    
+    def __getAveragePloidyDictFromMatrixFiles(self, dirName):
+        fileList = glob.glob(os.path.join(dirName, 'matrix*.txt'))
+        resDict = {}
+        for fileName in fileList:
+            keyword = os.path.basename(fileName).split('_')[1]
+            ploidy = self.__getAveragePloidyFromMatrixFile(fileName)
+            resDict[keyword] = ploidy
+        return resDict
+    
+    def __getAverageHistPloidyFromDir(self, dirName, histFileName = None):
+        if not histFileName:
+            histFileName = 'GSE9845_lrr_baf.segments_hg18_cov_hist.txt'
+        histFileName = os.path.join(dirName, histFileName)
+        fh = ReadFileAtOnceParser(histFileName)
+        header = fh.getSplittedLine()
+        totalBases = 0
+        ploidy = 0.
+        for splittedLine in fh:
+            segmentLength = int(splittedLine[3])
+            totalBases += segmentLength
+            ploidy += int(splittedLine[0]) * segmentLength * \
+                   float(splittedLine[4]) / 100
+        return ploidy / totalBases
+    
     def __checkNbDirs(self, dirName, nbExpectedDirs):
-        self.assertEqual(len([currentDirName for currentDirName in glob.glob(os.path.join(dirName, '*')) if os.path.isdir(currentDirName)]), nbExpectedDirs)
+        self.assertEqual(len([currentDirName for currentDirName in \
+                              glob.glob(os.path.join(dirName, '*')) \
+                            if os.path.isdir(currentDirName)]), nbExpectedDirs)
     
     def __testBase(self, testDirName, nbExpectedDirs):
         outDir = os.path.join(self._targetDir, testDirName)
@@ -5545,13 +5583,24 @@ class TestACNViewer2(unittest.TestCase):
         self.__checkNbDirs(outDir, nbExpectedDirs)
         return outDir
     
-    def __testAffy(self, dirName):
+    def __testAffy(self, dirName, expectedPloidy = None, histFileName = None,
+                   expectedPloidyDict=None):
         outDir = self.__testBase(dirName, 2)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.png'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb', '*.pdf'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.png'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'rawCopyNb', '*.pdf'))), 12)
         self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
+        if not expectedPloidy:
+            expectedPloidy = 0.0759248072257181
+        currentPloidy = self.__getAverageHistPloidyFromDir(outDir, histFileName)
+        #print 'currentPlo = ', currentPloidy
+        self.assertEqual(currentPloidy, expectedPloidy)
+        ploidyDict = self.__getAveragePloidyDictFromMatrixFiles(outDir)
+        if not expectedPloidyDict:
+            expectedPloidyDict = {'relCopyNb': 0.14627868357487922,
+                                  'rawCopyNb': 2.579544082125604}
+        self.assertEqual(ploidyDict, expectedPloidyDict)
         return outDir
     
     def __checkPloidyFile(self, outDir, ploidy, nb):
@@ -5565,13 +5614,20 @@ class TestACNViewer2(unittest.TestCase):
         self.assertEqual(totalNb, nb)
     
     def testDefaultPloidy(self):
-        outDir = self.__testAffy('TEST_AFFY_PLOIDY', 2)
-        self.assertEqual(os.path.isfile(os.path.join(outDir, 'GSE9845_lrr_baf_segments_10pc_ploidy.txt')), False)
+        outDir = self.__testAffy('TEST_AFFY_PLOIDY', 0.27751087561089405,
+                        expectedPloidyDict={'relCopyNb': -1.3822841183574879,
+                                            'rawCopyNb': 2.6240715579710145})
+        self.assertEqual(os.path.isfile(os.path.join(outDir,
+                        'GSE9845_lrr_baf_segments_10pc_ploidy.txt')), False)
     
     def testPercent(self):
-        outDir = self.__testAffy('TEST_AFFY_PERCENT', 2)
+        outDir = self.__testAffy('TEST_AFFY_PERCENT', 0.09653300428142354,
+                                 histFileName=
+                            'GSE9845_lrr_baf.segments_merged_hist_5.0pc.txt',
+                            expectedPloidyDict = \
+                            {'relCopyNb': 0.10792755344418052,
+                             'rawCopyNb': 2.5401821060965952})
         
-    
     def testPennCNV(self):
         outDir = self.__testBase('TEST_PENN_CNV', 0)
         self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
@@ -5803,7 +5859,7 @@ Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
                                                  options.hasChrPrefix)
     elif options.progName == 'testAll':
         TestACNViewer().process(options.targetDir, options.fastTest,
-                                options.smallMem, options.runGistic)
+                                options.smallMem, options.runGISTIC)
     else:
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,

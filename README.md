@@ -116,8 +116,9 @@ Download the test data set [aCNViewer_DATA.tar.gz (~5GB and ~20GB uncompressed)]
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt`
 
-The generated histogram `TEST1_1/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png` can be found in `aCNViewer_DATA/expectedResults/TEST1_1/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png`
-![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_merged_hist_2000000nt.png?raw=true "Quantitative stacked histogram example")
+![quantitative stacked histogram example:](/img/GSE9845_lrr_baf.segments_hg18_cov_hist.png?raw=true "Quantitative stacked histogram example")
+
+![Histogram of heterozygous / homozygous CNVs:](/img/GSE9845_lrr_baf.segments_hg18_cov_hist_hetHom.png?raw=true "Histogram of heterozygous / homozygous CNVs")
 
 Here are other typical plots you may be interested in:
 
@@ -131,28 +132,33 @@ Here are other typical plots you may be interested in:
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1`
 
 
-<a id="heatmapRel"></a><u>Heatmap with relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
+<a id="heatmapRel"></a><u>Heatmap of relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP1 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1`
+
+![Heatmap of relative copy number values using the clinical feature `BCLC stage`:](/img/matrix_relCopyNb_2000000nt_heatmap_BCLC_stage_ward_10.png?raw=true "Heatmap of relative copy number values using the clinical feature `BCLC stage`")
+
 
 
 <a id="heatmapGenPos"></a><u>Heatmap with regions ordered by genomic positions (only clustering on samples):</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP_GENPOS --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1 --keepGenomicPosForHistogram 1`
 
+![Heatmap of relative copy number values with regions ordered by genomic positions using the clinical feature `BCLC stage`:](/img/matrix_relCopyNb_2000000nt_heatmap_BCLC_stage_ward_11.png?raw=true "Heatmap of relative copy number values with regions ordered by genomic positions using the clinical feature `BCLC stage`")
+
 
 <a id="heatmapCNV"></a><u>Heatmap with copy number values:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP2 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05`
 
-See [Heatmap example](/img/matrix_None2000000nt_heatmap_BCLC_stage_None.pdf)
+![Heatmap of copy number values using the clinical feature `BCLC stage`:](/img/matrix_rawCopyNb_2000000nt_heatmap_BCLC_stage_ward_00.png?raw=true "Heatmap of copy number values using the clinical feature `BCLC stage`")
 
 
 <a id="dendroExample"></a><u>Dendrogram with copy number values:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_DENDRO --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 0 --dendrogram 1 -G "BCLC stage" -u 1`
 
-![dendrogram example:](/img/matrix_None2000000nt_dendro_BCLC_stage.png?raw=true "Dendrogram example")
+![Dendrogram of copy number values using the clinical feature `BCLC stage`:](/img/matrix_rawCopyNb_2000000nt_dendro_BCLC_stage_rawCopyNb.png?raw=true "Dendrogram of copy number values using the clinical feature `BCLC stage`")
 
 
 <a id="outputFormatExamples"></a><u>Customize output formats:</u>
@@ -417,8 +423,8 @@ Each file is in the same format with the following columns:
 * `CNV key`: the relative copy number value compared to the tumor ploidy
 * `chrName`
 * `start`: the middle of the segment so the real start is `start - segmentLength / 2`
-* `segmentLength`
-* `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, `start - segmentLength / 2`, `start + segmentLength / 2`)
+* `segmentLength`: length of the current segment
+* `percentage`: the percentage of samples with the relative ploidy value in `CNV key` for the segment (`chrName`, [`start - segmentLength / 2`, `start + segmentLength / 2`])
 * `samples`: the list of the samples falling in the above category
 
 
