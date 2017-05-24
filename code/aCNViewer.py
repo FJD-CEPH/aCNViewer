@@ -982,9 +982,44 @@ found %d:\n%s' % (gw6LibDir, len(fileList), '\n'.join(fileList)))
         targetSketchFileName = self.__getTargetSketchFileFromLibDirAndPlatform(
             gw6LibDir, platform)
         return genoClusterFile, pfbFile, targetSketchFileName, binDir
-
-    def _runPennCnvAndGetLrrBafFile(self, celDirName, libDir, gw6Dir,
+    
+    def _createCNVsUsingPennCNV(self, lrrBafFile, celDirName, libDir, gw6Dir,
                                     platform, targetDir):
+        pennCnvDir = os.path.join(self.__binDir, 'PennCNV')
+        genoClusterFile, pfbFile, targetSketchFileName, gw6BinDir = \
+        self.__getGenoClusterPfbFileTargetSketchFileAndBinDirFromDir(gw6Dir,
+                                                                     platform)
+        lrrBafFile = self._runPennCnvAndGetLrrBafFile(celDirName, libDir,
+                                                      gw6Dir, platform,
+                                                      targetDir, True)
+        signalDir = os.path.join(targetDir, 'signal')
+        Utilities.mySystem('mkdir -p %s' % signalDir)
+        print 'Step 2.1: Split the signal file into individual files for CNV \
+calling by PennCNV'
+        cmd = '%s/kcolumn.pl %s split 2 -tab -head 3 -name -out %s' % \
+            (pennCnvDir, lrrBafFile, os.path.join(signalDir, 'sig'))
+        Utilities()._runFunc(Utilities.mySystem, [
+            cmd], os.path.join(targetDir, 'step2.1'))
+        
+        print 'Step 2.2: Call CNVs'
+        signalListFile = os.path.join(targetDir, 'signalFileList.txt')
+        cmd = Utilities.mySystem('ls %s > %s' % \
+                        (os.path.join(signalDir, 'sig*'), signalListFile))
+        Utilities.mySystem(cmd)
+        hmmFile = glob.glob(os.path.dirname(genoClusterFile), '*.hmm')
+        if len(hmmFile) != 1:
+            raise NotImplementedError('.hmm file not found in %s: found %d \
+files:\n%s' % (os.path.dirname(genoClusterFile), len(hmmFile),
+               '\n'.join(hmmFile)))
+        hmmFile = hmmFile[0]
+        cmd = '%s/detect_cnv.pl -test -hmm %s -pfb %s -list %s -log %s/log.txt \
+-out %s/rawcnv.txt' % (pennCnvDir, hmmFile, pfbFile, signalListFile, targetDir,
+                       targetDir)
+        Utilities()._runFunc(Utilities.mySystem, [
+            cmd], os.path.join(targetDir, 'step2.2'))
+    
+    def _runPennCnvAndGetLrrBafFile(self, celDirName, libDir, gw6Dir,
+                                    platform, targetDir, runAllSteps=None):
         if not os.path.isdir(self.__binDir):
             raise NotImplementedError(
                 'Please specify bin dir where Affymetrix Power Tools (APT) is \
@@ -1016,22 +1051,28 @@ expr.genotype=true --target-sketch %s' % (aptBinDir, cdfFile, targetDir,
                                           targetSketchFileName)
         Utilities()._runFunc(Utilities.mySystem, [
             cmd], os.path.join(targetDir, 'step1.2'))
-
-        print 'Step 1.4: LRR and BAF calculation'
         quantNormFile = os.path.join(
             targetDir, 'quant-norm.pm-only.med-polish.expr.summary.txt')
         if not os.path.isfile(quantNormFile):
             raise NotImplementedError(
                 'quantNormFile %s not found' % quantNormFile)
+        
+        if runAllSteps:
+            genoClusterFile = os.path.join(targetDir, 'genocluster.txt')
+            print 'Step 1.3: Generate canonical genotype clustering file'
+            cmd = '%s/generate_affy_geno_cluster.pl %s/birdseed.calls.txt \
+%s/birdseed.confidences.txt %s -locfile %s -out %s' % (gw6BinDir, targetDir,
+                            targetDir, quantNormFile, pfbFile, genoClusterFile)
+            Utilities()._runFunc(Utilities.mySystem, [
+            cmd], os.path.join(targetDir, 'step1.3'))
+            
+        print 'Step 1.4: LRR and BAF calculation'
         lrrBafFile = os.path.join(targetDir, 'lrr_baf.txt')
         cmd = '%s/normalize_affy_geno_cluster.pl %s %s -locfile %s -out %s' % (
             gw6BinDir, genoClusterFile, quantNormFile, pfbFile, lrrBafFile)
         Utilities()._runFunc(Utilities.mySystem, [
             cmd], os.path.join(targetDir, 'step1.4'))
         return lrrBafFile
-    
-    def _modifyAscatScriptToAppendReliabilityScoreInTxtFormat(self, ):
-        return
     
     def __checkAndInstallRpackagesIfNecessary(self, rDir):
         # RColorBrewer
@@ -5532,6 +5573,7 @@ class TestACNViewer:
         #unittest.main()
         TestACNViewer2._targetDir = targetDir
         TestACNViewer2._fastTest = fastTest
+        TestACNViewer2._runGistic = runGistic
         suite = unittest.TestLoader().loadTestsFromTestCase(TestACNViewer2)
         unittest.TextTestRunner(verbosity=2).run(suite)
 
@@ -5728,7 +5770,7 @@ class TestACNViewer2(unittest.TestCase):
         self.assertEqual(len(glob.glob(os.path.join(seqDir, '*', '*_segments.txt'))), 3)
         
     def testAffyGistic(self):
-        if self._fastTest:
+        if self._fastTest or not self._runGistic:
             print 'TEST_AFFY_GISTIC skipped in fast test mode'
             return
         outDir = self.__testBase('TEST_AFFY_GISTIC', 1)

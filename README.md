@@ -87,7 +87,7 @@ aCNViewer can also be installed from its source by:
 
 ## Tutorial
 
-The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. All examples of this tutorial can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGistic 1]`. 
+The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. All examples of this tutorial can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGISTIC 1]`. 
 
 If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). If `--runGistic` is `1`, GISTIC will be tested and if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 5GB of RAM vs 50GB of RAM at the expense of a longer running time.
 
