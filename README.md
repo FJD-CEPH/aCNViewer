@@ -36,6 +36,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     * [ASCAT](#ascat)
     * [GISTIC](#gistic)
     * [Sequenza](#sequenza)
+    * [](HistogramOutputs)
     * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
   
 
@@ -403,13 +404,27 @@ For the full list of GISTIC output files, please refer to the section `Output Fi
 
 | File | Description |
 | --- | --- |
-
+| broad_significance_results.txt | The list of broad events with related q-values and frequencies |
+| all_lesions.conf_*.txt | the list of all focal events along with their level of significance |
+| amp_* | list of all focal amplification events |
+| del_* | list of all focal deletion events |
 
 
 #### Sequenza
 
 The Sequenza results of each sample pair are stored in a folder named `TUMOR_NORMAL_sequenza` in the `sequenza` folder and contains the following files:
-* 
+
+| File | Description |
+| --- | --- |
+| `*_segments.txt` | predicted CNVs |
+| `*_CP_contours.pdf`, `*_confints_CP.txt` & `*_model_fit.pdf` | inferred cellularity and ploidy |
+| `*_alternative_fit.pdf` & `*_alternative_solutions.txt` | alternative inferred cellularities and ploidies |
+| `*_chromosome_view.pdf` | chromosome view with mutations, BAF, depth ratio and segments |
+| `*_genome_view.pdf` | genome view of all the CNVs |
+| `*_mutations.txt` | list of detected mutations |
+| `*_CN_bars.pdf` | frequency of all the copy number values |
+
+For more information about Sequenza output files, please refer to its [user guide](https://cran.r-project.org/web/packages/sequenza/vignettes/sequenza.pdf).
 
 
 #### HistogramOutputs
@@ -431,7 +446,7 @@ Each file is in the same format with the following columns:
 The following files are created as well:
 * `*_10pc_ploidy.txt` is a matrix of segments of 10% chromosomal length for all samples. The last column indicates the calculated ploidy which corresponds to the most frequent ploidy
 
-* `*.R` is the R script used to create the various graphical representations. You can modify and re-run this script if you want to further customize your graphical outputs and aCNViewer do not propose the customizations you are looking for.
+* `*.R` are R scripts used to create the various graphical representations. You can modify and re-run these scripts if you want to further customize your graphical outputs and if aCNViewer do not propose the customizations you are looking for.
 
 
 ##### Dendrograms and heatmaps
