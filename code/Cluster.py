@@ -1363,7 +1363,7 @@ def _guessLocation():
     location = HpcScriptBase.EBI
     hostName = os.popen('hostname').read().strip()
     if '.cng.fr' in os.environ.get('HOSTNAME', '') or '193.50' in \
-       os.popen('ifconfig').read():
+       os.popen('ifconfig 2> /dev/null').read():
         if os.path.isfile('/mach_kernel'):
             location = HpcScriptBase.CNG_MAC
         else:

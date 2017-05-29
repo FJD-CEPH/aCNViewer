@@ -19,8 +19,12 @@ class R:
 
     def getLibraryPathList(self):
         # cmd = '%sRscript --vanilla -e ".libPaths()"' % self.__binDir
-        return [dirName.strip().split()[-1].strip('"') for dirName in
-                self._execString('.libPaths()', True)]
+        rStr = self._execString('.libPaths()', True).read()
+        dirList = []
+        for line in rStr.split('\n'):
+            dirList += [currentDir.strip('"') for currentDir in \
+                        line.split('] ')[-1].split()]
+        return dirList
 
     def getLibStr(self):
         libStr = ''

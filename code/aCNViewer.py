@@ -983,8 +983,18 @@ found %d:\n%s' % (gw6LibDir, len(fileList), '\n'.join(fileList)))
             gw6LibDir, platform)
         return genoClusterFile, pfbFile, targetSketchFileName, binDir
     
-    def _createCNVsUsingPennCNV(self, lrrBafFile, celDirName, libDir, gw6Dir,
+    def __extractCELfiles(self, archiveFileName, targetDir):
+        popName = os.path.basename(archiveFileName).split('.')[0]
+        targetDir = os.path.join(targetDir, popName)
+        Utilities.mySystem('mkdir -p %s' % targetDir)
+        cmd = 'cd %s && tar xzf %s' % (targetDir, os.path.abspath(archiveFileName))
+        Utilities.mySystem(cmd)
+        return targetDir
+    
+    def _createCNVsUsingPennCNV(self, celDirName, libDir, gw6Dir,
                                     platform, targetDir):
+        if os.path.isfile(celDirName):
+            celDirName = self.__extractCELfiles(celDirName, targetDir)
         pennCnvDir = os.path.join(self.__binDir, 'PennCNV')
         genoClusterFile, pfbFile, targetSketchFileName, gw6BinDir = \
         self.__getGenoClusterPfbFileTargetSketchFileAndBinDirFromDir(gw6Dir,
