@@ -1527,8 +1527,10 @@ class RunSequenza:
         return mpileUpFile
 
     def __getSequenzaUtils(self):
+        print 'Looking for sequenza-utils.py'
         for rLibraryDir in R(self.__binDir, libDir=self.__rLibDir).\
                 getLibraryPathList():
+            print 'Trying in R library folder: "%s"' % rLibraryDir
             fileName = os.path.join(
                 rLibraryDir, 'sequenza', 'exec', 'sequenza-utils.py')
             if os.path.isfile(fileName):
