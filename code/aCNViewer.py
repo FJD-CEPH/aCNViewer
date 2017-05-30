@@ -3,7 +3,7 @@ import types
 import copy
 import os
 import glob
-import argparse
+#import argparse
 import textwrap
 
 from MultiDict import *
@@ -886,17 +886,23 @@ save.image(paste(baseName,".RData",sep=""))
         outFh = CsvFileWriter(rFileName)
         outFh.write(rStr)
         return rFileName, baseName + '.segments.txt'
-
-    def __createCelFileListFile(self, celDirName, targetDir):
-        celFilePattern = os.path.join(celDirName, '*.cel')
-        celFileList = glob.glob(os.path.join(celDirName, '*.cel'))
+    
+    def __getCelFilePatternAndListFromDirAndFileExtension(self, celDirName, fileExt):
+        celFilePattern = os.path.join(celDirName, '*.%s' % fileExt)
+        celFileList = glob.glob(os.path.join(celDirName, '*.%s' % fileExt))
         if not celFileList:
-            celFilePattern2 = os.path.join(celDirName, '*.cel.gz')
+            celFilePattern2 = os.path.join(celDirName, '*.%s.gz' % fileExt)
             celFileList = glob.glob(celFilePattern2)
             if celFileList:
                 cmd = 'gunzip %s' % celFilePattern2
                 Utilities.mySystem(cmd)
                 celFileList = glob.glob(celFilePattern)
+        return celFilePattern, celFileList
+    
+    def __createCelFileListFile(self, celDirName, targetDir):
+        celFilePattern, celFileList = self.__getCelFilePatternAndListFromDirAndFileExtension(celDirName, 'cel')
+        if not celFileList:
+            celFilePattern, celFileList = self.__getCelFilePatternAndListFromDirAndFileExtension(celDirName, 'CEL')
         if not celFileList:
             raise NotImplementedError(
                 'Could not find CEL files in dir %s' % celDirName)
@@ -914,18 +920,15 @@ save.image(paste(baseName,".RData",sep=""))
                 'Could not find APT binary folder in %s' % self.__binDir)
         return dirList[0]
 
-    def __getCdfAndChrXfileFromDir(self, libDir):
+    def __getCdfFileFromDir(self, libDir):
         fileList = glob.glob(os.path.join(libDir, '*.cdf'))
+        if len(fileList) > 1:
+            fileList = [fileName for fileName in fileList if 'Full' not in os.path.basename(fileName)]
         if len(fileList) != 1:
             raise NotImplementedError('Expecting one cdf file in dir %s but \
 found %d:\n%s' % (libDir, len(fileList), '\n'.join(fileList)))
         cdfFile = fileList[0]
-        fileList = glob.glob(os.path.join(libDir, '*.chrx'))
-        if len(fileList) != 1:
-            raise NotImplementedError('Expecting one chrx file in dir %s but \
-found %d:\n%s' % (libDir, len(fileList), '\n'.join(fileList)))
-        chrXfile = fileList[0]
-        return cdfFile, chrXfile
+        return cdfFile
 
     def __getGw6LibDirFromPlatform(self, gw6Dir, platform):
         if platform in ["Affy250k_sty", "Affy250k_nsp", "Affy500k"]:
@@ -991,17 +994,41 @@ found %d:\n%s' % (gw6LibDir, len(fileList), '\n'.join(fileList)))
         Utilities.mySystem(cmd)
         return targetDir
     
+    def __getPennCnvCmdForStep1_1(self, platform, aptBinDir, cdfFile,
+                                  targetDir, celFileListFile, optionStr,
+                                  libDir):
+        cmd = '%s/apt-probeset-genotype -c %s ' % (aptBinDir, cdfFile)
+        if platform == 'AffySNP6':
+            modelFileList = glob.glob(os.path.join(libDir, '*.birdseed.models'))
+            if len(modelFileList) != 1:
+                raise NotImplementedError('Expecting one birdseed.models file \
+in lib dir %s but found %s:\n%s' % (libDir, len(modelFileList),
+                                    '\n'.join(modelFileList)))
+            cmd += '-a birdseed --read-models-birdseed %s --special-snps %s' % (modelFileList[0], FileNameGetter(cdfFile).get('specialSNPs'))
+        else:
+            chrXfile = glob.glob(os.path.join(libDir, '*.chrx'))
+            if len(chrXfile) != 1:
+                raise NotImplementedError('Expecting one chrx file in dir %s but \
+    found %d:\n%s' % (libDir, len(chrXfile), '\n'.join(chrXfile)))
+            chrXfile = chrXfile[0]
+            cmd += '--chrX-snps %s' % chrXfile
+        cmd += ' --out-dir %s --cel-files %s' % (targetDir, celFileListFile)
+        if optionStr:
+            cmd += ' %s' % optionStr
+        return cmd
+    
     def _createCNVsUsingPennCNV(self, celDirName, libDir, gw6Dir,
-                                    platform, targetDir):
+                                    platform, targetDir, optionStr = None):
         if os.path.isfile(celDirName):
-            celDirName = self.__extractCELfiles(celDirName, targetDir)
+            celDirName = Utilities.getFunctionResultWithCache(FileNameGetter(celDirName).get('pyDump'),
+                                self.__extractCELfiles, celDirName, targetDir)
         pennCnvDir = os.path.join(self.__binDir, 'PennCNV')
         genoClusterFile, pfbFile, targetSketchFileName, gw6BinDir = \
         self.__getGenoClusterPfbFileTargetSketchFileAndBinDirFromDir(gw6Dir,
                                                                      platform)
         lrrBafFile = self._runPennCnvAndGetLrrBafFile(celDirName, libDir,
                                                       gw6Dir, platform,
-                                                      targetDir, True)
+                                                      targetDir, True, optionStr)
         signalDir = os.path.join(targetDir, 'signal')
         Utilities.mySystem('mkdir -p %s' % signalDir)
         print 'Step 2.1: Split the signal file into individual files for CNV \
@@ -1013,10 +1040,9 @@ calling by PennCNV'
         
         print 'Step 2.2: Call CNVs'
         signalListFile = os.path.join(targetDir, 'signalFileList.txt')
-        cmd = Utilities.mySystem('ls %s > %s' % \
+        Utilities.mySystem('ls %s > %s' % \
                         (os.path.join(signalDir, 'sig*'), signalListFile))
-        Utilities.mySystem(cmd)
-        hmmFile = glob.glob(os.path.dirname(genoClusterFile), '*.hmm')
+        hmmFile = glob.glob(os.path.join(os.path.dirname(genoClusterFile), '*.hmm'))
         if len(hmmFile) != 1:
             raise NotImplementedError('.hmm file not found in %s: found %d \
 files:\n%s' % (os.path.dirname(genoClusterFile), len(hmmFile),
@@ -1029,14 +1055,15 @@ files:\n%s' % (os.path.dirname(genoClusterFile), len(hmmFile),
             cmd], os.path.join(targetDir, 'step2.2'))
     
     def _runPennCnvAndGetLrrBafFile(self, celDirName, libDir, gw6Dir,
-                                    platform, targetDir, runAllSteps=None):
+                                    platform, targetDir, runAllSteps=None,
+                                    optionStr=None):
         if not os.path.isdir(self.__binDir):
             raise NotImplementedError(
                 'Please specify bin dir where Affymetrix Power Tools (APT) is \
 installed. The bin folder should contain a folder named "apt-*" which \
 represents the APT folder. This APT folder should contain a bin folder \
 containing all the necessary binaries.')
-        cdfFile, chrXfile = self.__getCdfAndChrXfileFromDir(libDir)
+        cdfFile = self.__getCdfFileFromDir(libDir)
         aptBinDir = self.__getAptBinFolder()
         celFileListFile = self.__createCelFileListFile(celDirName, targetDir)
         if not targetDir:
@@ -1048,8 +1075,9 @@ containing all the necessary binaries.')
                 gw6Dir, platform)
 
         print 'Step 1.1: Extracting genotypes from CEL files'
-        cmd = '%s/apt-probeset-genotype -c %s --chrX-snps %s --out-dir %s \
---cel-files %s' % (aptBinDir, cdfFile, chrXfile, targetDir, celFileListFile)
+        cmd = self.__getPennCnvCmdForStep1_1(platform, aptBinDir, cdfFile,
+                                targetDir, celFileListFile, optionStr,
+                                libDir)
         Utilities()._runFunc(Utilities.mySystem, [
             cmd], os.path.join(targetDir, 'step1.1'))
 
@@ -1059,6 +1087,8 @@ containing all the necessary binaries.')
 expr.genotype=true --target-sketch %s' % (aptBinDir, cdfFile, targetDir,
                                           celFileListFile,
                                           targetSketchFileName)
+        if optionStr:
+            cmd += ' %s' % optionStr
         Utilities()._runFunc(Utilities.mySystem, [
             cmd], os.path.join(targetDir, 'step1.2'))
         quantNormFile = os.path.join(
@@ -5793,7 +5823,7 @@ class TestACNViewer2(unittest.TestCase):
         self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
         
         
-class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
+class SubcommandHelpFormatter:#(argparse.RawDescriptionHelpFormatter):
 
     def _format_action(self, action):
         parts = super(argparse.RawDescriptionHelpFormatter,
@@ -5803,7 +5833,7 @@ class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
         return parts
 
 
-class DefaultHelpParser(argparse.ArgumentParser):
+class DefaultHelpParser:#(argparse.ArgumentParser):
 
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)
