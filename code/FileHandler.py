@@ -530,7 +530,7 @@ class MergeAnnotationFiles:
         chrList = []
         for splittedLine in fh:
             chrName = splittedLine[0].lstrip('>').split('|')[0].strip()
-            chrList.append(chrName)
+            chrList.append(chrName.split()[0])
         return chrList
 
     def __isRefFileForHuman(self, fileName):
@@ -555,15 +555,24 @@ class MergeAnnotationFiles:
             chrList = self.__getChrListFromRefFile(refFileName)
         if chrNameList:
             chrList = chrNameList
+        print ':' * 50
+        print pattern, outputFileName, chrList
         fileList = self.__getFileListFromPatternAndChrList(pattern, chrList)
-        if not fileList and chrList and chrList[0][:3] == 'chr':
-            fileList = self.__getFileListFromPatternAndChrList(
-                pattern, [chrName[3:] for chrName in chrList])
+        if not fileList and chrList:
+            if chrList[0][:3] == 'chr':
+                fileList = self.__getFileListFromPatternAndChrList(
+                    pattern, [chrName[3:] for chrName in chrList])
+            else:
+                fileList = self.__getFileListFromPatternAndChrList(
+                    pattern, ['chr%s' % chrName for chrName in chrList])
         # os.system('cat %s > %s' % (' '.join(fileList), outputFileName))
         toCompress = False
         if outputFileName[-3:] == '.gz':
             outputFileName = '.'.join(outputFileName.split('.')[:-1])
             toCompress = True
+        if not fileList:
+            print pattern, outputFileName, chrList, fileList
+            raise NotImplementedError
         if hasHeader:
             cmd = 'head -1 %s > %s' % (fileList[0], outputFileName)
             if os.path.basename(fileList[0]).split('.')[-1] == 'gz':

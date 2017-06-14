@@ -3,7 +3,7 @@ import types
 import copy
 import os
 import glob
-#import argparse
+import argparse
 import textwrap
 
 from MultiDict import *
@@ -1451,7 +1451,14 @@ does not contain "%s"' % (header, tQNkeyword))
     def __getGw6Dir(self):
         gw6Dir = os.path.join(self.__binDir, 'PennCNV', 'gw6')
         if not os.path.isdir(gw6Dir):
-            raise NotImplementedError('gw6Dir "%s" does not exist' % gw6Dir)
+            Utilities.mySystem('mkdir -p %s' % gw6Dir)
+            url = 'http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz'
+            targetFileName = os.path.join(gw6Dir, os.path.basename(url))
+            cmd = 'wget -O %s %s' % (targetFileName, url)
+            Utilities.mySystem(cmd)
+            cmd = 'cd %s && tar xzf %s && rm %s' % (gw6Dir, targetFileName, targetFileName)
+            Utilities.mySystem(cmd)
+            #raise NotImplementedError('gw6Dir "%s" does not exist' % gw6Dir)
         return gw6Dir
         
     def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile,
@@ -1522,6 +1529,12 @@ class RunSequenza:
 
     def __getCreateMpileUpFile(self, bamFile, refFile, mpileUpFile,
                                chrName=None):
+        expectedIdxFile = bamFile + '.bai'
+        if not os.path.isfile(expectedIdxFile):
+            idxFile = FileNameGetter(bamFile).get('bai')
+            if not os.path.isfile(idxFile):
+                raise NotImplementedError('No index file found for bam "%s"' % bamFile)
+            os.system('ln -s %s %s' % (idxFile, expectedIdxFile))
         optionStr = ''
         if chrName:
             optionStr = '-r %s' % chrName
@@ -1843,6 +1856,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         return chrList
 
     def __mergeSeqzFilesAndClean(self, outFileName, refFile, chrList):
+        print '%' * 40
+        print outFileName, refFile, chrList
         missingFile = False
         for chrName in chrList:
             currentChrFile = outFileName.replace('.seqz.gz', '_%s.seqz.gz' % chrName)
@@ -2133,8 +2148,9 @@ class aCNViewer:
             chrEnd = int(cov.pos.ctgId)
         elif prevChr and prevChr != cov.pos.ctgId and int(cov.pos.ctgId) != int(prevChr) + 1:
             chrStart = int(prevChr) + 1
-            chrEnd = cov.pos.ctgId
+            chrEnd = int(cov.pos.ctgId)
         if chrStart:
+            print chrStart, chrEnd
             for chrName in range(chrStart, chrEnd):
                 chrLength = chrSizeDict[str(chrName)]
                 outFh.write([keyList[0], chrName, chrLength / 2,
@@ -4670,6 +4686,7 @@ for (obj in allFunctionList){
             # if std < 1:
             # print 'Excluding sample %s based on std' % sampleName
             # continue
+            print sampleName, len(dataList), len(ploidyLine)
             if len(ploidyLine) + 1 != len(outHeader):
                 print set(outHeader[1:]) - set([chrPos for chrPos, ploidy in
                                                 dataList])
@@ -5823,7 +5840,7 @@ class TestACNViewer2(unittest.TestCase):
         self.assertEqual(len(glob.glob(os.path.join(outDir, '*.png'))), 2)
         
         
-class SubcommandHelpFormatter:#(argparse.RawDescriptionHelpFormatter):
+class SubcommandHelpFormatter(argparse.RawDescriptionHelpFormatter):
 
     def _format_action(self, action):
         parts = super(argparse.RawDescriptionHelpFormatter,
@@ -5833,7 +5850,7 @@ class SubcommandHelpFormatter:#(argparse.RawDescriptionHelpFormatter):
         return parts
 
 
-class DefaultHelpParser:#(argparse.ArgumentParser):
+class DefaultHelpParser(argparse.ArgumentParser):
 
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)
@@ -5858,7 +5875,7 @@ genome-wide visualization of absolute copy number and copy neutral \
 variations\n\n%s\n' % ('\n'.join(textwrap.wrap(description, 100))),
         usage='aCNViewer.py command [options]',
         epilog='This is version {0} - Victor RENAULT - {1} - \
-Contact: aCNViewer@cephb.fr'.format(0.1, '20161010'))
+Contact: aCNViewer@cephb.fr'.format(2.0, '20170610'))
     subparsers = parser.add_subparsers(dest='module')
     subparsers.metavar = None
 

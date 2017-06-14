@@ -237,7 +237,7 @@ class ThreadManager:
             command = ' && '.join(cmdList)
         self.__nbProc = nbProc
         self.__expectedOutputFile = expectedOutputFile
-        self.submit(Utilities.mySystem, command)
+        self.submit(Utilities.mySystem, command, scriptName)
 
 
 class RemoteThreadManager:
@@ -784,11 +784,22 @@ class SGEcluster(HpcBase):
     _startJobIdStr = 'Your job'
     _endJobIdStr = ' ('
     _deleteJobCmd = 'qdel'
-
+    
+    def __extractValueForKeywordInJobStr(self, keyword, jobStr):
+        if keyword not in jobStr:
+            raise NotImplementedError('keyword "%s" not found in:\n"%s"' % (keyword, jobStr))
+        return jobStr.split(keyword)[-1].split('\n')[0].split(':')[-1].strip()
+        
+    def _extractOutErrFileFromJobStr(self, jobStr, jobId):
+        stdErrFileName = self.__extractValueForKeywordInJobStr('stderr_path_list:', jobStr)
+        stdOutFileName = self.__extractValueForKeywordInJobStr('stdout_path_list:', jobStr)
+        return stdOutFileName, stdOutFileName
+    
     def getJobIdList(self):
         fh = os.popen('qstat')
         jobIdList = []
-        fh.readline()
+        if not fh.readline().strip():
+            return jobIdList
         line = fh.readline()
         if '---------------------------------' not in line:
             raise NotImplementedError(
@@ -999,6 +1010,8 @@ class SLURMcluster(HpcBase):
     _deleteJobCmd = 'scancel'
     
     def _extractOutErrFileFromJobStr(self, jobStr, jobId):
+        if self._extractItemFromStr(jobStr, 'JobState=').split()[0] == 'PENDING':
+            return
         return self._extractItemFromStr(jobStr, 'StdOut='), self._extractItemFromStr(jobStr, 'StdErr=')
     
     def getJobDetails(self, jobId):

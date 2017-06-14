@@ -8,36 +8,39 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
 
 ## Table of contents
 - [Installation](#installation)
+  * [from Docker](#dockerinstallation)
+  * [from source](#installationfromsource)
+  * [installation validation](#installationvalidation)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
-    * [Glossary](#glossary)
-    * Processing SNP array data:
-      + [Affymetrix](#affymetrix)
-        - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**):
-          * [all plots](#allPlots)
-          * [use custom colors for plots](#customColors)
-          * [GISTIC example](#gisticExample)
-          * [heatmap using relative copy number values](#heatmapRel)
-          * [heatmap with CNVs ordered by genomic position](heatmapGenPos)
-          * [heatmap using copy number values](#heatmapCNV)
-          * [dendrogram example](#dendroExample)
-          * [custom graphical output formats](#outputFormatExamples)
-        - [Test using Affymetrix Cel files](#testaffycel)
-      + [Illumina](#illumina)
-    * [Processing NGS data](#ngs)
-      + [from paired (tumor / normal) bams](#testsequenzaraw)
-      + [from Sequenza segment files](#testsequenzacnvs)
-    * [Processing CNV file](#processing-cnv-files)
-      + [from ASCAT](#testaffyascat)
-      + [from PennCNV](#penncnv)
-      + [from Sequenza](#testsequenzacnvs)
-      + [from other tools](#othercnvformats)
+  * [Glossary](#glossary)
+  * Processing SNP array data:
+    + [Affymetrix](#affymetrix)
+      - [Test using Ascat results](#testaffyascat) (**start here if you want an overview of all the plotting options and different usage scenarios**):
+        * [all plots](#allPlots)
+        * [use custom colors for plots](#customColors)
+        * [GISTIC example](#gisticExample)
+        * [heatmap using relative copy number values](#heatmapRel)
+        * [heatmap with CNVs ordered by genomic position](heatmapGenPos)
+        * [heatmap using copy number values](#heatmapCNV)
+        * [dendrogram example](#dendroExample)
+        * [custom graphical output formats](#outputFormatExamples)
+      - [Test using Affymetrix Cel files](#testaffycel)
+    + [Illumina](#illumina)
+  * [Processing NGS data](#ngs)
+    + [from paired (tumor / normal) bams](#testsequenzaraw)
+    + [from Sequenza segment files](#testsequenzacnvs)
+  * [Processing CNV file](#processing-cnv-files)
+    + [from ASCAT](#testaffyascat)
+    + [from PennCNV](#penncnv)
+    + [from Sequenza](#testsequenzacnvs)
+    + [from other tools](#othercnvformats)
 - [Output files](#outputfiles)
-    * [ASCAT](#ascat)
-    * [GISTIC](#gistic)
-    * [Sequenza](#sequenza)
-    * [Histogram](#histogramoutputs)
-    * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
+  * [ASCAT](#ascat)
+  * [GISTIC](#gistic)
+  * [Sequenza](#sequenza)
+  * [Histogram](#histogramoutputs)
+  * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
   
 
 ***
@@ -50,29 +53,38 @@ The easiest way to install aCNViewer is to install the [Docker application](http
 `docker pull fjdceph/acnviewer`
 
 
-
 ### Installation from source
 
 aCNViewer can also be installed from its source by:
-1. downloading aCNViewer's data (includes test data sets and some of the third-party softwares listed in the [dependencies](#dependencies) section [APT and tQN])
+1. downloading aCNViewer's data (includes test data sets and most of the third-party softwares listed in the [dependencies](#dependencies) section)
 1. installing the dependencies listed [below](#dependencies).
-1. downloading the github source code from this page
+1. downloading the github source code from this page:
+`git clone https://github.com/FJD-CEPH/aCNViewer`
+
+
+### Installation validation
+
+Once aCNViewer is installed, you can run [unit tests](#unitTests) in order to check that everything is fine.
 
 
 #### Dependencies:
 
-* APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
+Most of the dependencies (except R and python), along with test data sets, are packaged in the archive [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz) in `aCNViewer_DATA/bin`. You can find more details below:
+
+* <a id="apt"></a>APT ([Affymetrix Power Tools](http://www.affymetrix.com/estore/partners_programs/programs/developer/tools/powertools.affx#1_2)) if you plan to process raw Affymetrix SNP arrays (to uncompress into `BIN_DIR`)
 
 * a recent version of R (version &ge; 3.2) with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) installed for generating the different graphical outputs:
   + [ASCAT](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) (will be automatically installed if not already installed) if you are analyzing raw SNP array data
-  + [Sequenza](https://cran.r-project.org/web/packages/sequenza/index.html) and [samtools](https://sourceforge.net/projects/samtools/files/latest/download?source=files) if you are analyzing paired (tumor / normal) bams
+  + [Sequenza](https://cran.r-project.org/web/packages/sequenza/index.html) (will be automatically installed if not already installed) if you are analyzing paired (tumor / normal) bams
   + [plotrix](https://cran.r-project.org/web/packages/plotrix/index.html) for plotting dendrograms (will be automatically installed if not already installed)
   + [gplots](https://cran.r-project.org/web/packages/gplots/index.html)
   + [RColorBrewer](https://cran.r-project.org/web/packages/RColorBrewer/index.html)
 
-* [tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
+* <a id="samtools"></a>samtools if you are analyzing paired (tumor / normal) bams. As Sequenza does not support newer mpileup file formats produced by more recent versions of samtools, use a version prior to Sequenza release date (2015-10-10): samtools version [0.1.19](https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download) for example is compatible.
 
-* [GISTIC](http://portals.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) if you want to have an advanced statistical way to prioritize regions of interest. Create a folder named `GISTIC_VERSION` in `BIN_DIR` and uncompress the GISTIC archive into it. Follow the instructions listed in `INSTALL.txt` at the root of the GISTIC folder in order to install MATLAB Component Runtime required by GISTIC and set the associated environment variables (`LD_LIBRARY_PATH` and `XAPPLRESDIR`).
+* <a id="tqn"></a>[tQN](http://cbbp.thep.lu.se/~markus/software/tQN/tQN-1.1.2.zip) if you plan to process raw Illumina SNP arrays (to uncompress into <a href="#binDir">`BIN_DIR`</a>) and run tQN normalisation. If the cluster file for the Illumina SNP array you plan to analyze is not in the tQN lib folder, you can download additional cluster files from [here](http://cbbp.thep.lu.se/~markus/software/tQN/)
+
+* <a id="gistic"></a>[GISTIC](http://portals.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) if you want to have an advanced statistical way to prioritize regions of interest. Create a folder named `GISTIC_VERSION` in `BIN_DIR` and uncompress the GISTIC archive into it. Follow the instructions listed in `INSTALL.txt` at the root of the GISTIC folder in order to install MATLAB Component Runtime required by GISTIC and set the associated environment variables (`LD_LIBRARY_PATH` and `XAPPLRESDIR`).
 
 * Python with version &ge; 2.7
 
@@ -87,7 +99,7 @@ aCNViewer can also be installed from its source by:
 
 ## Tutorial
 
-The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. All examples of this tutorial can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGISTIC 1]`. 
+The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. <a id="unitTests"></a>All examples of this tutorial are implemented as unit tests and can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGISTIC 1]`. 
 
 If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). If `--runGistic` is `1`, GISTIC will be tested and if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 5GB of RAM vs 50GB of RAM at the expense of a longer running time.
 
@@ -96,7 +108,25 @@ If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of 
 
 Let's call:
 - `aCNViewer_DATA` the location where the test data set [aCNViewer_DATA.tar.gz](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz) has been uncompressed into
-- <a id="binDir">`BIN_DIR`</a> the folder containing all third-party softwares located in `aCNViewer_DATA/bin`.
+
+- <a id="binDir">`BIN_DIR`</a> the folder containing all third-party softwares located in `aCNViewer_DATA/bin`. Here is the list of files and folders that should be in `BIN_DIR`:
+  * apt-*: [Affymetrix Power Tools](#apt) binaries
+  * ascat: contains ASCAT file for GC correction (this folder is automatically created by aCNViewer and GC files are automatically downloaded)
+    + GC_Affy250k.txt
+    + GC_AffySNP6_102015.txt
+    + gc_done
+    + GC_Illumina660k.txt
+    + GC_IlluminaOmniexpress.txt
+  * GISTIC*: installation folder of [GISTIC](#gistic)
+  * PennCNV: contains PennCNV-Affy protocols and helper scripts (will be automatically created by aCNViewer from [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz))
+  * samtools*: installation folder of [samtools](#samtools)
+  * tQN*: installation folder of [tQN](#tqn)
+  * ../genomes: folder located in the parent folder of `BIN_DIR` with one folder per genomic build. Each genomic build folder `BUILD` should contain at least:
+    + one file named `BUILD.centro.txt` with centromere positions for each chromosome of the genomic build (can be generated using `curl -s "http://hgdownload.cse.ucsc\
+.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > BUILD.centro.txt`)
+    + a tab-delimited file named `BUILD.chrom.sizes` with 2 columns respectively chromosome name and chromosome length (can be downloaded from UCSC Genome browser)
+    + optionnaly, a reference fasta file (with one of the extension `.fa`, `.fa.gz`, `.fasta` or `.fasta.gz`) if you plan to use Sequenza
+  
 - <a id="dockerOrPython">`DOCKER_OR_PYTHON`</a> refers to the fact that `docker run fjdceph/acnviewer` or `python aCNViewer/code/aCNViewer.py` can be used as a prefix to run aCNViewer depending on the chosen installation method.
 
 
@@ -104,7 +134,7 @@ Let's call:
 
 Download the test data set [aCNViewer_DATA.tar.gz (~5GB and ~20GB uncompressed)](https://www.cng.fr/genodata/pub/LIVER/aCNViewer_DATA.tar.gz). In terms of computing resources: if you plan to:
 - run Sequenza on paired bam files, an access to a computer cluster is highly recommended as even though aCNViewer will be able to process your data in multi-threading mode, it may take quite a long time depending on the number of sample pairs to analyze
-- run GISTIC in order to have a robust statistical way to prioritize recurrent regions of interest, a machine with at least 50GB of RAM is necessary with `--smallMem 0` and 5GB with `--smallMem 1` (this option will make GISTIC run substantially longer)
+- run GISTIC in order to have a robust statistical way to prioritize recurrent regions of interest, a machine with at least 50GB of RAM is necessary with `--smallMem 0` and 10GB with `--smallMem 1` (this option will make GISTIC run substantially longer)
 
 
 
@@ -182,7 +212,7 @@ where:
   + `endpos`
   + `nMajor`
   + `nMinor`
-* `REF_BUILD`: the genome build used to generate the CNV segments (`hg18` and `hg19` are currently supported. If you want to add another build `BUILD`, please add a folder in `BUILD` in `aCNViewer_DATA/genomes` containing at least a tab-delimited file named `BUILD.chrom.sizes` with each chromosome name and length and a tab-delimited file named `BUILD.centro.txt` with the centromere positions by chr [this file can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`])
+* <a id="refbuild"></a>`REF_BUILD`: the genome build used to generate the CNV segments (`hg18` and `hg19` are currently supported. If you want to add another build `BUILD`, please add a folder in `BUILD` in `aCNViewer_DATA/genomes` containing at least a tab-delimited file named `BUILD.chrom.sizes` with each chromosome name and length and a tab-delimited file named `BUILD.centro.txt` with the centromere positions by chr [this file can be generated using `curl -s "http://hgdownload.cse.ucsc.edu/goldenPath/BUILD/database/cytoBand.txt.gz" | gunzip -c | grep acen > centro_build.txt`])
 
 <a id="generalPlotOptions"></a>**The following options are general plotting options:**
 * <a id="chrSize"></a>`CHR_SIZE_FILE`: a tab-delimited file with 2 columns respectively chromosome name and chromosome length. When `REF_BUILD` is set, `CHR_SIZE_FILE` is automatically set to `aCNViewer_DATA/genomes/REF_BUILD.chrom.sizes`.
@@ -190,7 +220,7 @@ where:
 * <a id="windowSize"></a>`WINDOW_SIZE`: segment size in bp. Please note that alternatively, `-p PERCENTAGE` can be used instead of `-w WINDOW_SIZE` in order to set the segment size in percentage of chromosome length where `PERCENTAGE` is a floating number between 0 and 100. If `WINDOW_SIZE` and `PERCENTAGE` are null then `WINDOW_SIZE` is set to 2Mb by default.
 * <a id="sampleFile"></a>`SAMPLE_FILE`: a tab-delimited file that should contain a column named `Sample` with the name of each sample and at least another column with the phenotypic / clinical feature. This file can contain a `sampleAlias` which will be used as the official sample id if provided.
 * <a id="phenotypicColumnName"></a>`PHENOTYPIC_COLUMN_NAME` is optional and refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature defined in `SAMPLE_FILE` will be generated.
-* <a id="rColorFile"></a> `RCOLOR_FILE`: colors in histograms (section "[histogram]". If defined, should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"), dendrograms (section "[group]". If defined, should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest) and heatmaps (sections "[chr]" [if defined, should contain 22 colors corresponding to chromosomes 1 to 22], "[group]" and "[heatmap]" [if defined, should contain 10 colors [one per line] corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9"]) can be redefined in that file. An example can be found [here](/img/rColor.txt).
+* <a id="rColorFile"></a> `RCOLOR_FILE`: file allowing to customize graph colors: colors for histograms can be overriden using a section named "[histogram]" which should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"). Histogram colors for heterozygous / homozygous CNVs can be changed using the section "[heteroHomo]" which should contain 6 colors corresponding to the values "-Hom", "-Het", "=Hom", "=Het", "+Hom", "+Het". Colors for dendrograms can be redefined using the section "[group]" which should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest. Colors for heatmaps are customizable using the section "[chr]" and should contain 22 colors corresponding to chromosomes 1 to 22], the section "[group]" (the same as previously seen for dendrograms) and the section "[heatmap]" which should contain 10 colors (one per line) corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9". An example can be found [here](/img/rColor.txt).
 * `PLOT_ALL`: specify whether all available plots should be generated. The default value is `1`.
 * `OUTPUT_FORMAT`: allow to customize output formats for the different types of available plots (histograms, heatmaps and dendrograms). Examples of use can be found [above](#outputFormatExamples). The default value is `hist:png(width=4000,height=1800,res=300);hetHom:png(width=4000,height=1800,res=300);dend:png(width=4000,height=2200,res=300);heat:pdf(width=10,height=12)`.
 * `PLOIDY_FILE`: custom ploidy values for each sample. Can either be a tab-delimited file with at least 2 columns: "sample" and "ploidy" or an integer which will set the same ploidy to all samples. By default, the ploidy is calculated using the CNV file segmented in fragments of 10% of chromosomal length and its value will be the most represented CNV value for each sample.
