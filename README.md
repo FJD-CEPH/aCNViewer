@@ -8,9 +8,9 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
 
 ## Table of contents
 - [Installation](#installation)
-  * [from Docker](#dockerinstallation)
-  * [from source](#installationfromsource)
-  * [installation validation](#installationvalidation)
+  * [from Docker](#docker-installation)
+  * [from source](#installation-from-source)
+  * [installation validation](#installation-validation)
 - [Overview](#overview)
 - [Tutorial](#tutorial):
   * [Glossary](#glossary)
@@ -222,7 +222,7 @@ where:
 * <a id="phenotypicColumnName"></a>`PHENOTYPIC_COLUMN_NAME` is optional and refers to the name of the column of the phenotypic / clinical feature of interest in `SAMPLE_FILE`. If you omit this parameter, one plot per feature defined in `SAMPLE_FILE` will be generated.
 * <a id="rColorFile"></a> `RCOLOR_FILE`: file allowing to customize graph colors: colors for histograms can be overriden using a section named "[histogram]" which should contain exactly 10 colors [one per line] corresponding to CNV values in the following order: "&le; -4", "-3", "-2", "-1", "1", "2", "3", "4", "5", "&ge; 6"). Histogram colors for heterozygous / homozygous CNVs can be changed using the section "[heteroHomo]" which should contain 6 colors corresponding to the values "-Hom", "-Het", "=Hom", "=Het", "+Hom", "+Het". Colors for dendrograms can be redefined using the section "[group]" which should contain at least the same number of colors than the number of distinct values for the phenotypic / clinical feature of interest. Colors for heatmaps are customizable using the section "[chr]" and should contain 22 colors corresponding to chromosomes 1 to 22], the section "[group]" (the same as previously seen for dendrograms) and the section "[heatmap]" which should contain 10 colors (one per line) corresponding to CNV values in the following order: "0", "1", "2", "3", "4", "5", "6", "7", "8", "&ge; 9". An example can be found [here](/img/rColor.txt).
 * `PLOT_ALL`: specify whether all available plots should be generated. The default value is `1`.
-* `OUTPUT_FORMAT`: allow to customize output formats for the different types of available plots (histograms, heatmaps and dendrograms). Examples of use can be found [above](#outputFormatExamples). The default value is `hist:png(width=4000,height=1800,res=300);hetHom:png(width=4000,height=1800,res=300);dend:png(width=4000,height=2200,res=300);heat:pdf(width=10,height=12)`.
+* <a id="outputFormat"></a>`OUTPUT_FORMAT`: allow to customize output formats for the different types of available plots (histograms, heatmaps and dendrograms). Examples of use can be found [above](#outputFormatExamples). The default value is `hist:png(width=4000,height=1800,res=300);hetHom:png(width=4000,height=1800,res=300);dend:png(width=4000,height=2200,res=300);heat:pdf(width=10,height=12)`.
 * `PLOIDY_FILE`: custom ploidy values for each sample. Can either be a tab-delimited file with at least 2 columns: "sample" and "ploidy" or an integer which will set the same ploidy to all samples. By default, the ploidy is calculated using the CNV file segmented in fragments of 10% of chromosomal length and its value will be the most represented CNV value for each sample.
 
 <a id="histogramOptions"></a>**The following options are histogram specific**:
@@ -376,7 +376,7 @@ where:
   
 ### Processing CNV files
 
-At the moment, ASCAT segment file, PennCNV and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below] (#OtherCNVformats).
+At the moment, ASCAT segment file, PennCNV and Sequenza results can be used as an input to aCNViewer. It is possible however to feed aCNViewer with CNV results from any other softwares as explained in the section [below](#othercnvformats).
 
 
 Both examples below require to download [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz).
@@ -404,7 +404,7 @@ CNV results from any software can be processed by aCNViewer if formatted in the 
 * `nMajor`
 * `nMinor`
 
-The result file should be sorted according to the following ordered column names: `sample`, `chr`, `startpos`, `endpos` and chromosome names in the `chr` column should not contain the prefix `chr` so `chr1` should appear as `1`. If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot none` to disable LOH plotting.
+The result file should be sorted according to the following ordered column names: `sample`, `chr`, `startpos`, `endpos` and chromosome names in the `chr` column should not contain the prefix `chr` so `chr1` should appear as `1`. All CNVs for one indivual should be non overlapping. If there is only a global CNV value `v` (and this no allele-specific CNV value), `nMajor` and `nMinor` can take any value as long as `nMajor + nMinor = v`. When plotting the quantitative histogram, add option `--lohToPlot none` to disable LOH plotting.
 
 
 ### OutputFiles

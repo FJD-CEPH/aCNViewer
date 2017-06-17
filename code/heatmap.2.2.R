@@ -85,20 +85,26 @@ myHist <- function(x,
       else
         breaks <- length(col)+1
     }
-
+  print("LLLL")
+  minX = min(x, na.rm=na.rm)
+  maxX = max(x,na.rm=na.rm)
+  print(length(breaks))
+  print(breaks)
   if(length(breaks)==1)
     {
       if(!symbreaks)
-        breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
+        breaks <- seq(minX, maxX, length=breaks)
       else
         {
           extreme <- max(abs(x), na.rm=TRUE)
           breaks <- seq( -extreme, extreme, length=breaks )
         }
     }
-    #print("@@@@@@@@@@@@@@")
-    #print (breaks)
-    #print(col)
+    print("@@@@@@@@@@@@@@")
+	print (min(x, na.rm=na.rm))
+	print(max(x,na.rm=na.rm))
+    print (breaks)
+    print(col)
       scale <- if(symm && missing(scale)) "none" else match.arg(scale)
       trace <- match.arg(trace)
       density.info <- match.arg(density.info)
@@ -128,7 +134,8 @@ myHist <- function(x,
           min.raw <- min.breaks
           max.raw <- max.breaks
         }
-      #print(paste(c("min.raw=", min.raw, ", max.raw=", max.raw)))
+      print(paste(c("min.raw=", min.raw, ", max.raw=", max.raw)))
+	  print (breaks)
       z <- seq(min.raw, max.raw, by=min(diff(breaks)/100))
       image(z=matrix(z, ncol=1),
             col=col, breaks=tmpbreaks,
@@ -140,28 +147,35 @@ myHist <- function(x,
               lab <- c(0:8, "+")
 			  maxN <- max.raw+1
 			  maxRaw <- max.raw+1
+			  min.raw = 0
           }
           else{
               lab <- min.raw:max.raw
               maxN <- max.raw - min.raw + 2
               maxRaw = max.raw
           }
-          #print(paste(c("maxN=", maxN)))
+          print(paste(c("maxN=", maxN)))
           #print(paste(c("l=", lab)))
-	  #print(paste("LB=", length(breaks)))
-	  #print(paste(c("B=", breaks)))
+		  print(paste("LB=", length(breaks)))
+		  print(paste(c("B=", breaks)))
 
           lv <- pretty(breaks, n = maxN)
           xv <- scale01(as.numeric(lv), min.raw, max.raw+1)
-          #print(paste(c("b=", breaks)))
-          #print(paste(c("lv=", lv)))
-          #print(paste(c("xv=", xv)))
+          print(paste(c("b=", breaks)))
+          print(paste(c("lv=", lv)))
+          print(paste(c("xv=", xv)))
+		  print(paste(c("lab=", lab)))
           xargs <- list(at=xv, labels=lab)
+		  print("GGIGIGI")
+		  print(density.info)
       } else {
           xargs <- key.xtickfun()
       }
       xargs$side <- 1
+	  print("zZ")
+	  print(xargs)
       do.call(axis, xargs)
+	  print("zZq")
       if (is.null(key.xlab)) {
         if(scale=="row")
             key.xlab <- "Row Z-Score"
@@ -202,7 +216,10 @@ myHist <- function(x,
         }
       else if(density.info=="histogram")
         {
+		  #print("BEO")
+		  #print(x)
           h <- hist(x, plot=FALSE, breaks=breaks)
+		  #print("KOKOKO")
           #print(h)
           hx <- scale01(breaks, min.raw, max.raw)
           hy <- c(h$counts, h$counts[length(h$counts)])

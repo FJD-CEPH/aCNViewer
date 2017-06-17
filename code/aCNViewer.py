@@ -282,7 +282,7 @@ class RunTQN:
                                       'normalized', sampleName + '_tQN.txt')
         if not os.path.isfile(normalizedFile):
             os.system('rm %s_tQN_norm_done' % finalReportFile)
-            print normalizedFile, finalReportFile
+            # print normalizedFile, finalReportFile
             # sys.exit(0)
 
     def process(self, dirName, targetDir):
@@ -755,9 +755,9 @@ class RunAscat:
             os.path.basename(lrrBafFile).split('.')[0])
         cmd = 'cut -f 1-3 %s > %s' % (lrrBafFile, snpPosFile)
         Utilities()._runFunc(Utilities.mySystem, [cmd], snpPosFile)
-        print len(tumorSampleList), len(normalSampleList),\
-            len(idxDict['Tumor']['LogR']), len(idxDict['Tumor']['BAF']),\
-            len(idxDict['Normal']['LogR']), len(idxDict['Normal']['BAF'])
+        # print len(tumorSampleList), len(normalSampleList),\
+        # len(idxDict['Tumor']['LogR']), len(idxDict['Tumor']['BAF']),\
+        # len(idxDict['Normal']['LogR']), len(idxDict['Normal']['BAF'])
         baseName = '.'.join(lrrBafFile.split('.')[:-1])
         libStr = R(libDir=self.__rLibDir).getLibStr()
         rStr = '''X11.options(colortype="pseudo.cube")
@@ -1145,7 +1145,7 @@ specify R package installation folder.'
         fh, header, lineNb = RunAscat()._getFhHeaderAndLineNbForIlluminaReport(
             fileName)
         columnName = 'B Allele Freq'
-        print 'Header', header
+        # print 'Header', header
         if columnName not in header:
             return []
         sampleList = []
@@ -1834,13 +1834,13 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             sys.executable, self.__getSequenzaUtils(), progName, normalBam,
             tumorBam, gcFile, optionStr, outFileName,
             FileNameGetter(outFileName).get('err'))
-        print '#' * 50
-        print outFileName, FileNameGetter(outFileName).get('err')
-        print '%' * 30
-        #Utilities.mySystem(cmd, scriptFile)
+        # print '#' * 50
+        # print outFileName, FileNameGetter(outFileName).get('err')
+        # print '%' * 30
+        # Utilities.mySystem(cmd, scriptFile)
         Utilities.mySystem(cmd)
-        #if createPileUp:
-            #Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
+        # if createPileUp:
+            # Utilities.mySystem('rm %s %s' % (normalPileUp, tumorPileUp))
 
     def __getChrList(self, refFile, byChr=False):
         chrList = [None]
@@ -1856,8 +1856,8 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
         return chrList
 
     def __mergeSeqzFilesAndClean(self, outFileName, refFile, chrList):
-        print '%' * 40
-        print outFileName, refFile, chrList
+        # print '%' * 40
+        # print outFileName, refFile, chrList
         missingFile = False
         for chrName in chrList:
             currentChrFile = outFileName.replace('.seqz.gz', '_%s.seqz.gz' % chrName)
@@ -1958,7 +1958,7 @@ sequenza.results(sequenza.extract = test, cp.table = CP.example,
             cmdList, None, cluster=cluster)
         for tumorSample, normalSample in sampleList:
             print 'Processing sample pair (%s, %s)' % (tumorSample, normalSample)
-            print bamDict
+            # print bamDict
             tumorBam = bamDict[tumorSample]
             normalBam = bamDict[normalSample]
             # self.__appendMpileUpCreation(tumorBam, refFile, cmdList)
@@ -2150,7 +2150,7 @@ class aCNViewer:
             chrStart = int(prevChr) + 1
             chrEnd = int(cov.pos.ctgId)
         if chrStart:
-            print chrStart, chrEnd
+            # print chrStart, chrEnd
             for chrName in range(chrStart, chrEnd):
                 chrLength = chrSizeDict[str(chrName)]
                 outFh.write([keyList[0], chrName, chrLength / 2,
@@ -2289,9 +2289,9 @@ class aCNViewer:
         else:
             outputFormatDict = defaultOutputFormatDict
         self.__outputFormatDict = outputFormatDict
-        print outputFormatDict
-        print outputFormatDict.keys()
-        #sys.exit(0)
+        # print outputFormatDict
+        # print outputFormatDict.keys()
+        # sys.exit(0)
         
     def __isStrHtmlHexadecimalColor(self, colorStr):
         if len(colorStr) != 7 or colorStr[0] != '#':
@@ -2524,9 +2524,17 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
 
         endSegmentList = self._getEndSegmentList(
             end, sampleName, chrName, chrEnd, defaultPloidy)
+        #if not endSegmentList:
+            #end = chrEnd
+        #if chrName == 14:
+            #print '%' * 20
+            #print 'sampleName = %s, endSegmentList = %s' % (sampleName, endSegmentList)
+            #print chrName, (end, chrEnd)
+            #print ';' * 15
         startSegmentNb = self.__getNbSegmentsFromPos(start)
         startSegment = startSegmentNb * self.__windowSize + 1
-        endSegment = startSegment + self.__windowSize - 1
+        #endSegment = max(chrEnd, startSegment + self.__windowSize - 1)
+        endSegment = min(chrEnd, startSegment + self.__windowSize - 1)
         while lineList:
             totalSize = 0
             currentLineList = self._getLineListInBetween(
@@ -2550,7 +2558,14 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
             endSegment = min(endSegment + self.__windowSize, chrEnd)
             if startSegment > endSegment:
                 break
-        return startSegmentList + middleSegmentList + endSegmentList
+        segmentList = startSegmentList + middleSegmentList + endSegmentList
+        # print '+' * 50
+        # print 'Before merge'
+        # print segmentList[-2:]
+        self.__mergeLastTwoSegmentsIfNecessary(segmentList)
+        # print 'After merge'
+        # print segmentList[-2:]
+        return segmentList
 
     def __getNbSegmentsFromPos(self, pos):
         residue = pos % self.__windowSize
@@ -2582,13 +2597,13 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
     def __mergeLastTwoSegmentsIfNecessary(self, segmentList, i=-1,
                                           reverse=False, mergeAnyway=False,
                                           isLOH=None):
-        if len(segmentList) < 2:
+        if len(segmentList) < 2 or i >= len(segmentList):
             return
-        #print '.' * 50
-        #print 'i=%d' % i, len(segmentList), segmentList
-        #print segmentList[i]
-        #print segmentList[i-1]
-        #print '%' * 30
+        # print '.' * 50
+        # print 'i=%d' % i, len(segmentList), segmentList
+        # print segmentList[i]
+        # print segmentList[i-1]
+        # print '%' * 30
         sampleName1, chrName1, lastSegmentStart1, chrEnd1, defaultPloidy1 = \
             segmentList[i]
         sampleName0, chrName0, lastSegmentStart0, chrEnd0, defaultPloidy0 = \
@@ -2881,7 +2896,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         ploidyDict = DefaultPloidyDict()
         if ploidyFile:
             ploidyDict = self._getPloidyDictFromFile(ploidyFile)
-        print ascatFile, len(ploidyDict), ploidyDict, ploidyFile
+        # print ascatFile, len(ploidyDict), ploidyDict, ploidyFile
         Utilities.mySystem('mkdir -p %s' % targetDir)
         chrSizeDict = self.__getChrSizeDictFromFile(chrFile)
         # sampleList = self.__getSampleListFromFile(ascatFile)
@@ -2938,7 +2953,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                 if ploidy != otherPloidy:
                     print 'Different ploidies for sample %s: %d != %d' % \
                           (sampleName, ploidy, otherPloidy)
-                    print nbBases, ploidyDict[sampleName]
+                    # print nbBases, ploidyDict[sampleName]
                     nbErrors += 1
             outFh.write([sampleName, ploidy])
         if ploidyFile:
@@ -3032,7 +3047,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
 
             currentSegmentList = self._getSegmentListFromList(
                 chrLineList, sampleName, chrName, chrSizeDict, defaultPloidy)
-            #if chrName == 21:
+            #if chrName == 14:
                 #print '@' * 50
                 #print currentSegmentList
                 #print '#' * 40
@@ -3102,6 +3117,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
         outFh = CsvFileWriter(outFileName)
         matrixDict = {}
         isLoh = sum(ploidyDict.values()) == 0
+        keySet = firstSampleName = None
         while fh.hasLinesLeft():
             lineDict, sampleName = self.__getNextSampleLineDictAndSampleName(
                 fh)
@@ -3122,6 +3138,14 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                       [['%s:%d-%d' % (chrName, start, end), alleleNb]
                        for currentSampleName, chrName, start, end, alleleNb in
                        segmentList]
+            currentKeySet = set(['%s:%d-%d' % (chrName, start, end)
+                       for currentSampleName, chrName, start, end, alleleNb in
+                       segmentList])
+            if keySet is None:
+                keySet = currentKeySet
+                firstSampleName = sampleName
+            if keySet != currentKeySet:
+                raise NotImplementedError('Matrix keys are different between sample %s and %s:\ninSample1BuNotInSample2 = %s\ninSample2ButNotInSample1 = %s' % (firstSampleName, sampleName, keySet - currentKeySet, currentKeySet - keySet))
         return outFileName, matrixDict
 
     def __getSegmentListFromFile(self, fileName):
@@ -3449,7 +3473,7 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                                 yLabel=None, colorSection=None, rSuffix=None):
         # print 'MAX = [%f]' % maxValue
         # print lohPointList
-        print 'LO', lohToPlot
+        # print 'LO', lohToPlot
         if not lohToPlot:
             lohToPlot = self._cnLOH
         if not breakList:
@@ -3536,7 +3560,7 @@ read.table("%s")' % (os.path.abspath(lohHistFileName), os.path.abspath(lohHistFi
         # c("6" = "magenta", "5" = "purple", "4" = "royalblue4", "3" =
         # "steelblue4", "2" = "darkolivegreen4", "1" = "mediumseagreen", "-1" =
         # "darkorange1", "-2" = "red", "-3" = "darkred", "-4" = "black")
-        print 'outputKeyword=%s, colorSection=%s' % (outputKeyword, colorSection)
+        # print 'outputKeyword=%s, colorSection=%s' % (outputKeyword, colorSection)
         if not subdataStrList:
             subdataStrList = ['V1>0', 'V1<0']
         rStr = """
@@ -4017,7 +4041,7 @@ for (pos in colnames(a)){
             if rColorList:
                 colorList = rColorList
         usedColorList = self.__getHeatmapColorListToUse(colorList, valueSet)
-        heatmapColorStr = 'c(colorList[1:9], rep(colorList[10], max(a)-8))'
+        heatmapColorStr = 'c(colorList[1:9], rep(colorList[10], max(max(a)-8, 0)))'
         if useRelativeCopyNbForClustering:
             heatmapColorStr = 'colorList'
         hrStr = 'hr <- hclust(dist(t(a)), method="%s")' % hclust
@@ -4150,7 +4174,7 @@ heatmap.2(t(a), margins=%(marginStr)s, key=TRUE, symkey=FALSE,
 density.info="histogram", denscol="gray25", key.xlab = "CNV value",
 lhei = c(2.5, 5), trace="none", scale="none", col=c(c("red", "orange",
 "yellow", "green", "deepskyblue", "blue", "purple3", "magenta", "orchid1"),
-rep("black", max(a)-8)), cexRow=%(cexRow)f, cexCol=%(cexCol)f,
+rep("black", max(max(a)-8, 0))), cexRow=%(cexRow)f, cexCol=%(cexCol)f,
 %(hclustStr)s%(colColorStr)s%(labRowStr)s%(labColStr)s%(rowColorStr)s)
 
 par(cex = .5)
@@ -4686,10 +4710,15 @@ for (obj in allFunctionList){
             # if std < 1:
             # print 'Excluding sample %s based on std' % sampleName
             # continue
-            print sampleName, len(dataList), len(ploidyLine)
-            if len(ploidyLine) + 1 != len(outHeader):
-                print set(outHeader[1:]) - set([chrPos for chrPos, ploidy in
-                                                dataList])
+            # print sampleName, len(dataList), len(ploidyLine)
+            missingKeySet = set(outHeader[1:]) - set([chrPos for chrPos,
+                                                      ploidy in dataList])
+            unexpectedKeySet = set([chrPos for chrPos, ploidy in dataList]) - \
+                             set(outHeader[1:])
+            if missingKeySet or unexpectedKeySet or \
+               len(ploidyLine) + 1 != len(outHeader):
+                print 'missingKeySet = %s' % missingKeySet
+                print 'unexpectedKeySet = %s' % unexpectedKeySet
                 print dataList
                 print sampleName, len(outHeader), len(ploidyLine) + 1
                 raise NotImplementedError
@@ -5137,7 +5166,51 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
         #print 'GISTIC err = [%s]' % stderr.read()
         print 'GISTIC out = [%s]' % stdout.read()
         
+    def __choosePennCNVsegmentWithMoreSnpsForPos(self, lineList, pos):
+        chosenCopyNb = maxNbSnps = None
+        for cov, line in lineList:
+            if not cov.pos.getOverlapPosition(pos):
+                continue
+            nbSnps = int(line[1].split('numsnp=')[-1])
+            if nbSnps > maxNbSnps:
+                maxNbSnps = nbSnps
+                chosenCopyNb = cov.score
+        return chosenCopyNb
+        
     def __convertPennCNVfileIntoAscatFormat(self, fileName, targetDir):
+        outFileName = FileNameGetter(fileName).get('_ascat.txt')
+        if targetDir:
+            outFileName = os.path.join(targetDir, os.path.basename(outFileName))
+        outFh = CsvFileWriter(outFileName)
+        outFh.write(['sample', 'chr', 'startpos', 'endpos', 'nMajor', 'nMinor'])
+        fh = ReadFileAtOnceParser(fileName, sep=None)
+        covDict = defaultdict(list)
+        resDict = {}
+        for splittedLine in fh:
+            sampleName = splittedLine[4]
+            chrName, start = splittedLine[0].split(':')
+            if chrName[:3] == 'chr':
+                chrName = chrName[3:]
+            start, end = start.split('-')
+            copyNb = int(splittedLine[3].split('cn=')[-1])
+            if sampleName not in resDict:
+                resDict[sampleName] = defaultdict(list)
+            resDict[sampleName][chrName].append((Coverage(Position(chrName, start, end), score = copyNb), splittedLine))
+            covDict[sampleName].append(Coverage(OrientedPosition(chrName, start, end, '+'), score=[copyNb]))
+        for sampleName, covList in covDict.iteritems():
+            Utilities.sortByPosition(covList)
+            newCovList = []
+            for cov in covList:
+                CoverageMerger()._mergeCov(cov, newCovList)
+            for cov in newCovList:
+                if len(set(cov.score)) > 1:
+                    print 'Warning: PennCNV copyNb differ for overlapping segments in sample %s: pos=%s, copyNbList=%s' % (sampleName, cov.pos, cov.score)
+                    copyNb = self.__choosePennCNVsegmentWithMoreSnpsForPos(resDict[sampleName][cov.pos.ctgId], cov.pos)
+                    cov.score = [copyNb]
+                outFh.write([sampleName, cov.pos.ctgId, cov.pos.start, cov.pos.end, cov.score[0], 0])
+        return outFileName
+        
+    def __convertPennCNVfileIntoAscatFormat2(self, fileName, targetDir):
         outFileName = FileNameGetter(fileName).get('_ascat.txt')
         if targetDir:
             outFileName = os.path.join(targetDir, os.path.basename(outFileName))
@@ -5295,6 +5368,10 @@ Please re-run the same command when all the submitted jobs are finished.'
         dumpFileName, covList, nbSamples = \
                     self.__getDumpFileNameCovListAndNbSamplesFromAscatFile(
                         ascatFile, centromereFile, targetDir)
+        #print '*' * 50
+        #for cov in covList:
+            #print cov
+        #print '2' * 40
         histFileName = self.__createHistDataFileFromCovList(covList,
                                     dumpFileName, ploidyDict, nbSamples,
                                     chrSizeDict)
@@ -5451,7 +5528,7 @@ Please re-run the same command when all the submitted jobs are finished.'
                 refBuild=None, geneGistic=None, smallMem=None, broad=None,
                 brLen=None, conf=None, armPeel=None, saveGene=None, gcm=None,
                 homoHeteroCNVs=False, useFullResolutionForHist=None):
-        print 'DDD', lohToPlot
+        # print 'DDD', lohToPlot
         if not targetDir:
             targetDir = 'OUT'
         if not self.__windowSize and not self.__percent:
