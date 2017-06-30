@@ -99,9 +99,9 @@ Most of the dependencies (except R and python), along with test data sets, are p
 
 ## Tutorial
 
-The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. <a id="unitTests"></a>All examples of this tutorial are implemented as unit tests and can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGISTIC 1]`. 
+The results of all the examples below can be found in `aCNViewer_DATA/allTests` in their respective target folder. <a id="unitTests"></a>All examples of this tutorial are implemented as unit tests and can be run at once using: <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-P testAll -t TARGET_DIR [--fastTest 0 --smallMem 0 --runGISTIC 0]`. 
 
-If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). If `--runGistic` is `1`, GISTIC will be tested and if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 5GB of RAM vs 50GB of RAM at the expense of a longer running time.
+If `--fastTest` is set to `1`, only tests which run in a *reasonable* amount of time will be run (all tests except [Illumina SNP array](#illumina), [paired bams with Sequenza](#testsequenzaraw), [GISTIC](#gistic) and [Affymetrix SNP arrays from CEL files](#testaffycel)). If `--runGistic` is `1`, GISTIC will be tested and if `--smallMem` is set `1`, GISTIC will run in small memory mode and will only require about 10GB of RAM vs 50GB of RAM at the expense of a longer running time.
 
 
 ### Glossary:
@@ -271,8 +271,6 @@ where:
 
 If ASCAT is not installed (i.e you are not using the [docker](https://hub.docker.com/r/fjdceph/acnviewer/) application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
 
-The histogram `OUTPUT_DIR/lrr_baf.segments_merged_hist_2000000nt.png` can also be found in `aCNViewer_DATA/snpArrays250k_sty/expectedResults/test1/lrr_baf.segments_merged_hist_2000000nt.png`.
-
 
 ==**Here is the full command:**==
 
@@ -333,7 +331,7 @@ Sequenza is used to process NGS **paired (tumor / normal) bams** and produce CNV
 
 ##### testSequenzaRaw
 
-Generate a quantitative histogram from paired (tumor / normal) bams (if you run this example on a <a href="#supportedClusters">supported computer cluster</a> which do not support array jobs then you will need to run the command below a second time after the first set of jobs are finished in order to generate the different plots you are interested in):
+Generate a quantitative histogram from paired (tumor / normal) bams:
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/wes/bams/ -t TEST_WES_RAW --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --fileType Sequenza --samplePairFile aCNViewer_DATA/wes/bams/sampleFile.txt`
 
@@ -363,8 +361,6 @@ Generate quantitative stacked histogram from Sequenza results with a window size
 [aCNViewer_DATA.tar.gz](http://www.cephb.fr/tools/aCNViewer/aCNViewer_DATA.tar.gz) is required to run this example.
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/wes/ -t TEST_WES_SEQUENZA --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --fileType Sequenza`
-
-The histogram `TARGET_DIR/ascat_merged_hist_2000000nt.png` can be found in `aCNViewer_DATA/wes/expectedResults/ascat_merged_hist_2000000nt.png`.
 
 
 ==**Here is the full command:**==

@@ -24,8 +24,9 @@ _isCustom = False
 
 class RunTQN:
 
-    def __init__(self, binDir=None):
+    def __init__(self, binDir=None, rLibDir = None):
         self.__binDir = binDir
+        self.__rLibDir = rLibDir
         if binDir:
             self.__tQN_folder = glob.glob(os.path.join(binDir, 'tQN*'))
             if len(self.__tQN_folder) == 1:
@@ -220,6 +221,7 @@ class RunTQN:
         Utilities.mySystem(cmd)
 
     def _run(self, splitDir, beadchip):
+        self.__installLimmaIfNecessary()
         sampleFile = os.path.join(splitDir, 'sample_names.txt')
         outFh = CsvFileWriter(sampleFile)
         outFh.write(['Assay', 'Filename', 'IGV_index'])
@@ -285,6 +287,17 @@ class RunTQN:
             # print normalizedFile, finalReportFile
             # sys.exit(0)
 
+    def __installLimmaIfNecessary(self):
+        rDir = self.__binDir
+        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
+                                                             'R')):
+            rDir = None
+        r = R(rDir, libDir=self.__rLibDir)
+        if not r.isPackageInstalled('limma'):
+            r._execString(
+                "source('http://bioconductor.org/biocLite.R'); \
+biocLite('limma')")
+            
     def process(self, dirName, targetDir):
         if os.path.basename(targetDir.rstrip(os.path.sep)) != 'extracted':
             targetDir = os.path.join(targetDir, 'extracted')
@@ -1114,7 +1127,7 @@ expr.genotype=true --target-sketch %s' % (aptBinDir, cdfFile, targetDir,
             cmd], os.path.join(targetDir, 'step1.4'))
         return lrrBafFile
     
-    def __checkAndInstallRpackagesIfNecessary(self, rDir):
+    def _checkAndInstallAscatIfNecessary(self, rDir):
         # RColorBrewer
         if R(rDir).isPackageInstalled('ASCAT'):
             return
@@ -1445,7 +1458,7 @@ does not contain "%s"' % (header, tQNkeyword))
         if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
                                                              'R')):
             rDir = None
-        self.__checkAndInstallRpackagesIfNecessary(rDir)
+        self._checkAndInstallAscatIfNecessary(rDir)
         RunSequenza(self.__binDir, self.__rLibDir)._installSequenzaIfNecessary()
     
     def __getGw6Dir(self):
@@ -1464,6 +1477,11 @@ does not contain "%s"' % (header, tQNkeyword))
     def process(self, lrrBafFile, sampleFile, sampleAliasFile, gcFile,
                 platform, libDir=None, gw6Dir=None, snpFile=None,
                 normalize=True, sampleList=None, targetDir=None, beadchip=None):
+        rDir = self.__binDir
+        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
+                                                             'R')):
+            rDir = None
+        self._checkAndInstallAscatIfNecessary(rDir)
         if not gcFile:
             if platform not in self.__gcFileDict:
                 raise NotImplementedError('SNP array platform "%s" unhandled' %
@@ -1505,11 +1523,6 @@ does not contain "%s"' % (header, tQNkeyword))
 
         rFileName, ascatFile = self.__createRscript(
             sampleFile, lrrBafFile, sampleAliasFile, gcFile, platform)
-        rDir = self.__binDir
-        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
-                                                             'R')):
-            rDir = None
-        self.__checkAndInstallRpackagesIfNecessary(rDir)
         Utilities()._runFunc(R(rDir).runScript, [rFileName], ascatFile)
         return ascatFile
 
@@ -1677,7 +1690,7 @@ class RunSequenza:
         outFh = CsvFileWriter(outFileName)
         sampleName = os.path.basename(fileName).split('_')[0]
         for splittedLine in fh:
-            outFh.write([sampleName, splittedLine[0].strip('"')] +
+            outFh.write([sampleName, splittedLine[0].strip('"').replace('chr', '')] +
                         splittedLine[1:3] + [splittedLine[aIdx],
                                              splittedLine[bIdx]])
 
@@ -3391,7 +3404,11 @@ for sample %s, idx = %s' % (sampleName, currentSegmentIdxList))
                 self.__writeLOH(lohDataDict2, lohFh, nbVal,
                                 chrPos, chrName, start, end, sampleLohFh2)
                 previousEnd = end
-                previousChrName = chrName
+            if chrName != previousChrName:
+                chrLength = chrSizeDict[chrName]
+                outFh.write([-1, chrName, chrLength / 2,
+                                             chrLength, 0, ''])
+            previousChrName = chrName
             for key, sampleList in countDict.iteritems():
                 val = len(sampleList)
                 val = val * 100. / nbVal
@@ -4033,7 +4050,7 @@ for (pos in colnames(a)){
                 if len(rColorList) != 2:
                     raise NotImplementedError('2 colors expected for "heatmapRel" section in rColorFile but found %d:\n%s' % (len(rColorList), '\n'.join(rColorList)))
                 paramList = rColorList
-            colorList = self.__getColorListForHeatmapGainsAndLosses(valueSet, *paramList)
+            colorList = self.__getColorListForHeatmapGainsAndLosses(set([-4, 5]), *paramList)
         else:
             colorList = ['red', 'orange', 'yellow', 'green', 'deepskyblue',
                          'blue', 'purple3', 'magenta', 'orchid1', 'black']
@@ -4041,7 +4058,9 @@ for (pos in colnames(a)){
             if rColorList:
                 colorList = rColorList
         usedColorList = self.__getHeatmapColorListToUse(colorList, valueSet)
-        heatmapColorStr = 'c(colorList[1:9], rep(colorList[10], max(max(a)-8, 0)))'
+        #usedColorList = colorList
+        #print colorList
+        heatmapColorStr = 'c(colorList[1:9], rep(colorList[10], max(max(a)-8, 1)))'
         if useRelativeCopyNbForClustering:
             heatmapColorStr = 'colorList'
         hrStr = 'hr <- hclust(dist(t(a)), method="%s")' % hclust
@@ -4174,7 +4193,7 @@ heatmap.2(t(a), margins=%(marginStr)s, key=TRUE, symkey=FALSE,
 density.info="histogram", denscol="gray25", key.xlab = "CNV value",
 lhei = c(2.5, 5), trace="none", scale="none", col=c(c("red", "orange",
 "yellow", "green", "deepskyblue", "blue", "purple3", "magenta", "orchid1"),
-rep("black", max(max(a)-8, 0))), cexRow=%(cexRow)f, cexCol=%(cexCol)f,
+rep("black", max(max(a)-8, 1))), cexRow=%(cexRow)f, cexCol=%(cexCol)f,
 %(hclustStr)s%(colColorStr)s%(labRowStr)s%(labColStr)s%(rowColorStr)s)
 
 par(cex = .5)
@@ -4606,8 +4625,8 @@ m <- b
                 '_dendro_%s.png' % colName.replace(' ', '_'))
             if targetDir:
                 imgFile = os.path.join(targetDir, os.path.basename(imgFile))
-            if keyword:
-                imgFile = FileNameGetter(imgFile).get('_%s.png' % keyword)
+            #if keyword:
+                #imgFile = FileNameGetter(imgFile).get('_%s.png' % keyword)
             if self.__sampleToGroupDict:
                 groupList = [groupName for groupName in groupList if groupName in self.__sampleToGroupDict.values()]
             rStr += '''%(getColorFuncStr)s
@@ -4739,6 +4758,7 @@ for (obj in allFunctionList){
         # plotSubgroups, chrSizeDict), '%s.pyDump' % Utilities.getTimeString())
         # sys.exit(0)
         cluster = ThreadManager(_getNbAvailableCpus())
+        print matrixDict
         matrixDict = self.__getSubsetMatrixForSamples(
             matrixDict, [sampleName for sampleName in matrixDict if
                          (_isCustom and sampleName[:2] != 'CS') or
@@ -5129,16 +5149,61 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
                         jobIdList=jobIdList))]
         ProcessFileFromCluster()._runCmdList(cmdList, None, guessHpc())
     
+    def __getGisticDir(self):
+        dirList = glob.glob(os.path.join(self.__binDir, 'GISTIC*'))
+        if len(dirList) != 1:
+            raise NotImplementedError('Could not find GISTIC folder in binDir %s' % self.__binDir)
+        return dirList[0]
+    
+    def __installGisticIfNecessary(self, gisticDir):
+        cmd = 'cd %s/MCR_Installer && ./install -mode silent -agreeToLicense yes -destinationFolder %s/MCR_ROOT' % (gisticDir, gisticDir)
+        Utilities.mySystem(cmd)
+    
+    def _installGisticIfNecessary(self):
+        gisticDir = self.__getGisticDir()
+        if not os.path.isdir(os.path.join(gisticDir, 'MCR_ROOT')):
+            Utilities()._runFunc(self.__installGisticIfNecessary, [gisticDir], os.path.join(gisticDir, 'install'))
+        
+    def __getGisticVersion(self, gisticDir):
+        partList = os.path.basename(gisticDir).split('_')
+        if partList[0] != 'GISTIC':
+            raise NotImplementedError('Folder %s does not seem to be a GISTIC folder' % gisticDir)
+        return '.'.join(partList[1:])
+            
+    def __getEnvStr(self, gisticDir):
+        version = self.__getGisticVersion(gisticDir)
+        libPath = os.environ.get('LD_LIBRARY_PATH')
+        if 'GISTIC' in libPath:
+            return
+        installDir = os.path.join(gisticDir, 'MCR_ROOT')
+        if not os.path.isdir(installDir):
+            raise NotImplementedError('Could not find GISTIC install dir %s' % installDir)
+        dirList = glob.glob(os.path.join(installDir, 'v*'))
+        if len(dirList) != 1:
+            print dirList
+            raise NotImplementedError('Could not find GISTIC installed dir in %s' % installDir)
+        installDir = dirList[0]
+        if version == '2.0.23':
+            libStr = 'export LD_LIBRARY_PATH=%(installDir)s/runtime/glnxa64:%(installDir)s/bin/glnxa64:%(installDir)s/sys/os/glnxa64'
+        elif version == '2.0.22':
+            libStr = 'export LD_LIBRARY_PATH=%(installDir)s/runtime/glnxa64:%(installDir)s/sys/os/glnxa64:%(installDir)s/sys/java/jre/glnxa64/jre/lib/amd64/native_threads:%(installDir)s/sys/java/jre/glnxa64/jre/lib/amd64/server:%(installDir)s/sys/java/jre/glnxa64/jre/lib/amd64'
+        else:
+            raise NotImplementedError('GISTIC requires the LD_LIBRARY_PATH variable to be set (please refer to "INSTALL.txt" in the GISTIC folder).')
+        libStr += ':$LD_LIBRARY_PATH && export XAPPLRESDIR=%(installDir)s/X11/app-defaults'
+        return libStr % {'installDir': installDir}
+    
     def __runGISTIC(self, ascatFile, targetDir, refBuild, geneGistic, smallMem,
                     broad, brLen, conf, armPeel, saveGene, gcm):
+        self._installGisticIfNecessary()
         targetDir = os.path.join(targetDir, 'gistic_res')
         Utilities.mySystem('mkdir -p %s' % targetDir)
-        refFile = glob.glob(os.path.join(self.__binDir, 'GISTIC*',
-                                         'refgenefiles', '%s.mat' % refBuild))
-        if len(refFile) != 1:
+        gisticDir = self.__getGisticDir()
+        refFile = os.path.join(gisticDir,
+                               'refgenefiles', '%s.mat' % refBuild)
+        if not os.path.isfile(refFile):
             raise NotImplementedError(
                 'Could not find reference file for build %s' % refBuild)
-        refFile = refFile[0]
+        #refFile = refFile[0]
         outFile = FileNameGetter(ascatFile).get('_gistic.txt')
         outFile = os.path.join(targetDir, os.path.basename(outFile))
         outFile, markerFile = Utilities.getFunctionResultWithCache(
@@ -5150,12 +5215,17 @@ useRelativeCopyNbForClustering %d --keepGenomicPosForHistogram %d \
             raise NotImplementedError(
                 'Could not find GISTIC exec gp_gistic2_from_seg')
         binFile = binFile[0]
-        libPath = os.environ['LD_LIBRARY_PATH1']
-        print 'LD_LIBRARY_PATH=[%s]' % libPath
-        cmd = 'export LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH && %s -b %s -seg %s -mk %s -refgene %s -genegistic %d -smallmem %d \
--broad %d -brlen %f -conf %f -armpeel %d -savegene %d -gcm %s 2> %s' % (libPath, binFile,
-        targetDir, outFile, markerFile, refFile,
-        geneGistic, int(bool(smallMem)), broad, brLen, conf, armPeel, saveGene, gcm, outFile + '.err')
+        #libPath = os.environ['LD_LIBRARY_PATH1']
+        #print 'LD_LIBRARY_PATH=[%s]' % libPath
+        cmd = '%s -b %s -seg %s -mk %s -refgene %s -genegistic %d \
+-smallmem %d -broad %d -brlen %f -conf %f -armpeel %d -savegene %d -gcm %s 2> \
+%s' % (binFile, targetDir, outFile, markerFile, refFile,
+        geneGistic, int(bool(smallMem)), broad, brLen, conf, armPeel, saveGene,
+        gcm, outFile + '.err')
+        envStr = self.__getEnvStr(gisticDir)
+        if envStr:
+            cmd = '%s && %s' % (envStr, cmd)
+        print 'GISTIC cmd = [%s]' % cmd
         #Utilities.mySystem(cmd)
         try:
             stdin, stdout, stderr = os.popen3(cmd)
@@ -5420,6 +5490,10 @@ Please re-run the same command when all the submitted jobs are finished.'
             currentCentromereDict = None
         if keepCentromereData is None:
             keepCentromereData = False
+        try:
+            self.__suffix
+        except:
+            self.__suffix = 'tmp'
         dumpFileName = lohFileName + '_%s_%d.pyDump5' % \
             (self.__suffix, keepCentromereData)
         if targetDir:
@@ -5510,8 +5584,51 @@ Please re-run the same command when all the submitted jobs are finished.'
                            colorDict, shapeDict, currentPhenotypeFile,
                            shapeDict2, coeff, None, None, hclust)
         cluster.wait()
-            
-            
+    
+    def __checkVersionGreatherEqualThan(self, cmd, versionMin, versionStr):
+        partList = versionStr.split('.')
+        version = float('.'.join(partList[:2]))
+        if version < versionMin:
+            raise NotImplementedError('%s version >= %f is required' % \
+                                      (cmd, versionMin))
+        
+    def _checkWhetherDependenciesAreInstalled(self, fileType, samplePairFile,
+                                               heatmap, plotAll, histogram,
+                                               homoHeteroCNVs):
+        cmdToCheckList = ['R', 'Rscript']
+        cmdDict = {}
+        for cmd in cmdToCheckList:
+            binPath = os.path.join(self.__binDir, cmd)
+            if os.path.isfile(binPath):
+                cmdDict[cmd] = binPath
+                continue
+            cmdStr = 'which %s 2> /dev/null' % cmd
+            fh = os.popen(cmdStr)
+            if not fh.read().strip():
+                raise NotImplementedError('"%s" is not installed' % cmd)
+            cmdDict[cmd] = cmd
+        cmd = '%s --version' % cmdDict['R']
+        fh = os.popen(cmd)
+        content = fh.read()
+        from WebExtractor import WebExtractor
+        versionStr = WebExtractor()._getStrIncludedInTag(content, 'R version ',
+                                                         ' ')
+        self.__checkVersionGreatherEqualThan(cmdDict['R'], 3.2, versionStr)
+        if fileType == 'Sequenza' and samplePairFile:
+            RunSequenza(self.__binDir, self.__rLibDir)._installSequenzaIfNecessary()
+        rDir = self.__binDir
+        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
+                                                             'R')):
+            rDir = None
+        r = R(rDir, libDir=self.__rLibDir)
+        if heatmap or plotAll:
+            for packageName in ['ggplot2', 'RColorBrewer', 'gplots']:
+                if not r.isPackageInstalled(packageName):
+                    r.installPackage(packageName)
+        if histogram or homoHeteroCNVs:
+            if not r.isPackageInstalled('ggplot2'):
+                raise NotImplementedError('R ggplot2 module is not installed')
+        
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
                 centromereFile=None, defaultGroupValue=None,
@@ -5529,8 +5646,13 @@ Please re-run the same command when all the submitted jobs are finished.'
                 brLen=None, conf=None, armPeel=None, saveGene=None, gcm=None,
                 homoHeteroCNVs=False, useFullResolutionForHist=None):
         # print 'DDD', lohToPlot
+        self._checkWhetherDependenciesAreInstalled(fileType, samplePairFile,
+                                                    heatmap, plotAll, histogram,
+                                                    homoHeteroCNVs)
         if not targetDir:
             targetDir = 'OUT'
+        #if os.path.isdir(targetDir):
+        #    raise NotImplementedError('targetDir "%s" already exists...' % targetDir)
         if not self.__windowSize and not self.__percent:
             self.__windowSize = 2000000
         if refBuild:
@@ -5580,7 +5702,7 @@ Please re-run the same command when all the submitted jobs are finished.'
         currentCentromereFile = centromereFile
         if keepCentromereData:
             currentCentromereFile = None
-        if self.__sampleFile and (plotAll or \
+        if self.__sampleFile or (plotAll or \
                                   (histogram and not useFullResolutionForHist)\
                                   or dendrogram or heatmap):
             outFileName, matrixDict, ploidyDict, chrSizeDict, centromereDict = \
@@ -5614,6 +5736,8 @@ Please re-run the same command when all the submitted jobs are finished.'
             self._plotHeteroHomoCNVs(ascatFile, centromereFile, targetDir,
                                      chrSizeDict, ploidyDict, ploidyFile)
         if not self.__sampleFile:
+            if not plotAll and not histogram:
+                raise NotImplementedError('Option "--sampleFile" (necessary for plotting dendrograms and / or heatmaps) is null and histogram is turned off. Please specify option for "--sampleFile" or turn on "--histogram" in order to generate some plots.')
             self.__cleanDir(targetDir)
             return
         if plotAll or dendrogram or heatmap:
@@ -5658,7 +5782,10 @@ Please re-run the same command when all the submitted jobs are finished.'
 import unittest
 
 class TestACNViewer:
-    def process(self, targetDir, fastTest, smallMem, runGistic = True):
+    def process(self, targetDir, fastTest, smallMem, runGistic = True, binDir = None):
+        if not binDir:
+            binDir = 'aCNViewer_DATA/bin'
+        aCNViewer(2000000, None, binDir = binDir)._checkWhetherDependenciesAreInstalled( 'Sequenza', True, True, True, True, True)
         cmdList = ['-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt',
                    
                    '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_HEATMAP1 --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt --plotAll 0 --heatmap 1 --dendrogram 0 -G "BCLC stage" --chrLegendPos 0,.55 --groupLegendPos .9,1.05 --useRelativeCopyNbForClustering 1',
@@ -5701,7 +5828,9 @@ class TestACNViewer:
             outDir = cmd.split(' -t ')[-1].split()[0]
             outDir2 = os.path.join(targetDir, outDir)
             cmd = cmd.replace(' -t %s ' % outDir, ' -t %s ' % outDir2)
-            cmdList2.append((inFile, outDir2, Cmd('python %s %s' % (os.path.abspath(__file__), cmd), memory = 8)))
+            cmd = cmd.replace(' -b aCNViewer_DATA/bin ', ' -b %s ' % binDir)
+            cmdList2.append((inFile, outDir2, Cmd('%s %s %s' % (sys.executable,
+                                os.path.abspath(__file__), cmd), memory = 8)))
         ProcessFileFromCluster()._runCmdList(cmdList2, None, cluster)
         if isinstance(cluster, ThreadManager):
             cluster.wait()
@@ -5799,7 +5928,7 @@ class TestACNViewer2(unittest.TestCase):
                         'GSE9845_lrr_baf_segments_10pc_ploidy.txt')), False)
     
     def testPercent(self):
-        outDir = self.__testAffy('TEST_AFFY_PERCENT', 0.09653300428142354,
+        outDir = self.__testAffy('TEST_AFFY_PERCENT', 0.07554095785666178,#0.09653300428142354,
                                  histFileName=
                             'GSE9845_lrr_baf.segments_merged_hist_5.0pc.txt',
                             expectedPloidyDict = \
@@ -6037,7 +6166,8 @@ Contact: aCNViewer@cephb.fr'.format(2.0, '20170610'))
                                                  options.hasChrPrefix)
     elif options.progName == 'testAll':
         TestACNViewer().process(options.targetDir, options.fastTest,
-                                options.smallMem, options.runGISTIC)
+                                options.smallMem, options.runGISTIC,
+                                options.binDir)
     else:
         aCNViewer(options.windowSize, options.percentage, options.binDir,
                   options.useShape, options.sampleFile,
@@ -6375,7 +6505,10 @@ with clinical information with sample name "Sample" column'),
 
                            CommandParameter('sampleList',
                                             CommandParameterType.COMMA_SEP),
-
+                           
+                           CommandParameter('sampleToExcludeList',
+                                            CommandParameterType.COMMA_SEP),
+                           
                            CommandParameter('samplePairFile',
                                             'string'),
                            

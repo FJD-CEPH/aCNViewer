@@ -88,6 +88,16 @@ myHist <- function(x,
   print("LLLL")
   minX = min(x, na.rm=na.rm)
   maxX = max(x,na.rm=na.rm)
+  if (minX >= 0) {
+	minX = 0
+	maxX = 9
+	min.raw = 0
+	min.breaks = 0
+  }
+  else {
+	minX = -4
+	maxX = 5
+  }
   print(length(breaks))
   print(breaks)
   if(length(breaks)==1)
@@ -143,7 +153,7 @@ myHist <- function(x,
 
       par(usr=c(0,1,0,1))
       if (is.null(key.xtickfun)) {
-          if (min(x) > 0){
+          if (min(x) >= 0){
               lab <- c(0:8, "+")
 			  maxN <- max.raw+1
 			  maxRaw <- max.raw+1
@@ -358,10 +368,13 @@ heatmap.2.1 <- function (x,
                        ...
                        )
 {
-
+  print ('START')
+  print (min(x))
+  print (max(x))
   retval <- list()
 
   scale <- if(symm && missing(scale)) "none" else match.arg(scale)
+  print(scale)
   dendrogram <- match.arg(dendrogram)
   trace <- match.arg(trace)
   density.info <- match.arg(density.info)
@@ -600,8 +613,14 @@ heatmap.2.1 <- function (x,
 
   if(length(breaks)==1)
     {
-      if(!symbreaks)
-        breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
+      if(!symbreaks){
+		if (min(x) < 0) {
+		  breaks <- seq(-4, 5, length=breaks) #breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
+		}
+		else{
+		  breaks <- seq(0, 9, length=breaks) #breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
+		}
+	  }
       else
         {
           extreme <- max(abs(x), na.rm=TRUE)
@@ -693,6 +712,11 @@ heatmap.2.1 <- function (x,
   else iy <- 1:nr
 
   ## display the main carpet
+  print ("MAIIN")
+  print(col)
+  print(min(x))
+  print(max(x))
+  print(breaks)
   image(1:nc, 1:nr, x, xlim = 0.5+ c(0, nc), ylim = 0.5+ c(0, nr),
         axes = FALSE, xlab = "", ylab = "", col=col, breaks=breaks,
         ...)
@@ -914,17 +938,19 @@ heatmap.2.1 <- function (x,
           x[x >= maxValue] <- maxValue
           max.breaks <- maxValue
 	  colList <- col[0:maxValue+1]
+	  min.breaks <- 0
       }
       else{
-	  max.breaks <- 6
+		  max.breaks <- 5
           colList <- col
       }
-      #print(paste("max.breaks = ", max.breaks, ", min.breaks=", min.breaks))
-      #print(paste("max = ", max(x)))
+      print(paste("max.breaks = ", max.breaks, ", min.breaks=", min.breaks))
+      print(paste("max = ", max(x)))
+	  print(paste("min = ", min(x)))
       #print(breaks)
-      #print(col)
-      #print(paste(c("COLO", col[1:maxValue+1])))
-      #print(paste(c("COLO2", col[0:maxValue+1])))
+      print(col)
+      print(paste(c("COLO", col[1:maxValue+1])))
+      print(paste(c("COLO2", col[0:maxValue+1])))
       myHist(x, breaks = NULL, key.xlab = key.xlab, key.ylab = key.ylab, key.title = key.title, key.par = key.par, symkey = symkey, na.rm = na.rm, key.xtickfun = key.xtickfun, col = colList, symbreaks=symbreaks,
       denscol = denscol, key.ytickfun = key.ytickfun, trace = trace, linecol = linecol, min.breaks = min.breaks, max.breaks = max.breaks)
 
