@@ -155,7 +155,8 @@ class ThreadManager:
                 if self.__keepResults:
                     # print 'KEEEP', thread._res
                     self._resList.append((thread._args, thread._res))
-                if hasattr(thread, '_expectedOutputFile') and thread._expectedOutputFile:
+                if hasattr(thread, '_expectedOutputFile') and \
+                   thread._expectedOutputFile:
                     self.__jobDict[thread._expectedOutputFile] = None
         self.__threadList = newThreadList
 
@@ -564,9 +565,10 @@ class HpcBase:
     def _extractItemFromStr(self, jobStr, item):
         idx = jobStr.find(item)
         if idx == -1:
-            raise NotImplementedError('Can not find "%s" file in [%s]' % (item, jobStr))
+            raise NotImplementedError('Can not find "%s" file in [%s]' %
+                                      (item, jobStr))
         return jobStr[idx:].split('=')[1].split()[0]
-            
+
     def _addOptionStrToCmd(self, cmd, optionList):
         for optionName, optionValue in optionList:
             cmd += ' %s %s' % (optionName, optionValue)
@@ -607,14 +609,14 @@ file in %s' % (self.__nbParts, len(self._jobList), nbJobs, self.__targetDir)
     def getOutErrFileForJobId(self, jobId):
         jobStr = self.getJobDetails(jobId)
         return self._extractOutErrFileFromJobStr(jobStr, jobId)
-        
+
     def _extractOutErrFileFromJobStr(self, jobStr, jobId):
         raise NotImplementedError
-    
+
     def isMasterNode(self):
         # for key in os.environ:
-            # if self.MASTER_VAR in key:
-                # return True
+        # if self.MASTER_VAR in key:
+        # return True
         return os.environ.get('HOSTNAME', '') in ['Unicluster', 'master1']
 
     def areAllVarInEnv(self):
@@ -784,17 +786,20 @@ class SGEcluster(HpcBase):
     _startJobIdStr = 'Your job'
     _endJobIdStr = ' ('
     _deleteJobCmd = 'qdel'
-    
+
     def __extractValueForKeywordInJobStr(self, keyword, jobStr):
         if keyword not in jobStr:
-            raise NotImplementedError('keyword "%s" not found in:\n"%s"' % (keyword, jobStr))
+            raise NotImplementedError('keyword "%s" not found in:\n"%s"' %
+                                      (keyword, jobStr))
         return jobStr.split(keyword)[-1].split('\n')[0].split(':')[-1].strip()
-        
+
     def _extractOutErrFileFromJobStr(self, jobStr, jobId):
-        stdErrFileName = self.__extractValueForKeywordInJobStr('stderr_path_list:', jobStr)
-        stdOutFileName = self.__extractValueForKeywordInJobStr('stdout_path_list:', jobStr)
+        stdErrFileName = self.__extractValueForKeywordInJobStr(
+            'stderr_path_list:', jobStr)
+        stdOutFileName = self.__extractValueForKeywordInJobStr(
+            'stdout_path_list:', jobStr)
         return stdOutFileName, stdOutFileName
-    
+
     def getJobIdList(self):
         fh = os.popen('qstat')
         jobIdList = []
@@ -1008,12 +1013,14 @@ class SLURMcluster(HpcBase):
     _endJobIdStr = '\n'
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
-    
+
     def _extractOutErrFileFromJobStr(self, jobStr, jobId):
-        if self._extractItemFromStr(jobStr, 'JobState=').split()[0] == 'PENDING':
+        if self._extractItemFromStr(jobStr, 'JobState=').split()[0] == \
+           'PENDING':
             return
-        return self._extractItemFromStr(jobStr, 'StdOut='), self._extractItemFromStr(jobStr, 'StdErr=')
-    
+        return self._extractItemFromStr(jobStr, 'StdOut='), \
+            self._extractItemFromStr(jobStr, 'StdErr=')
+
     def getJobDetails(self, jobId):
         fh = os.popen('sjinfo %d' % jobId)
         return fh.read()
@@ -1135,18 +1142,20 @@ class SLURMCCRTcluster(HpcBase):
     _endJobIdStr = '\n'
     _defaultMemory = 4
     _deleteJobCmd = 'scancel'
-    
+
     def _extractOutErrFileFromJobStr(self, jobStr, jobId):
         fh = os.popen('ccc_mstat -r %d' % jobId)
         content = fh.read()
-        #print [content]
-        #print self._extractItemFromStr(content, 'StdOut='), self._extractItemFromStr(content, 'StdErr=')
-        return self._extractItemFromStr(content, 'StdOut='), self._extractItemFromStr(content, 'StdErr=')
-    
+        # print [content]
+        # print self._extractItemFromStr(content, 'StdOut='),
+        # self._extractItemFromStr(content, 'StdErr=')
+        return self._extractItemFromStr(content, 'StdOut='), \
+            self._extractItemFromStr(content, 'StdErr=')
+
     def getJobDetails(self, jobId):
         fh = os.popen('ccc_mstat -b %d' % jobId)
         return fh.read()
-    
+
     def getJobIdList(self):
         fh = os.popen('ccc_mstat -u $USER')
         content = fh.read()
@@ -1198,7 +1207,6 @@ class SLURMCCRTcluster(HpcBase):
             if walltime <= maxWallTime:
                 qos = None
             maxWallTime *= 3
-            
         elif qos == 'test':
             walltime = -1
         if not walltime:
@@ -1209,7 +1217,7 @@ class SLURMCCRTcluster(HpcBase):
             walltime = maxWallTime
         if walltime == -1:
             walltime = None
-        #memory = min(memory, 8)
+        # memory = min(memory, 8)
         cmd = 'echo "%s" | ccc_msub -c %d -M %d -A %s -q %s ' % (
             command, nbProc, memory * 1000, projectName, queue)
         if qos:
@@ -1248,7 +1256,7 @@ def __isMasterNode():
     # os.popen('hostname').read().strip())
     # return stdout.read() and 'not defined' not in stderr.read()
 
-    
+
 def guessHpcOld(allowLocalRun=False, nbCpus=None, *args):
     if not nbCpus:
         nbCpus = _getNbAvailableCpus()
@@ -1296,7 +1304,10 @@ def __isMasterNode():
 
 
 def guessHpc(allowLocalRun=False, nbCpus=None, useFromMasterNode=True, *args):
-    cmdAndClusterTypeList = [('qsub', SGEcluster), ('ccc_msub', SLURMCCRTcluster), ('sbatch', SLURMcluster), ('bsub', LSFcluster), ('msub', MOABcluster)]
+    cmdAndClusterTypeList = [('qsub', SGEcluster),
+                             ('ccc_msub', SLURMCCRTcluster),
+                             ('sbatch', SLURMcluster), ('bsub', LSFcluster),
+                             ('msub', MOABcluster)]
     if not nbCpus:
         nbCpus = _getNbAvailableCpus()
     msg = 'Warning cluster not found, using ThreadManager instead with %d \
@@ -1307,19 +1318,21 @@ cpus' % nbCpus
         print 'Machines', machineList
         return RemoteThreadManager(machineList)
     for cmd, clusterClass in cmdAndClusterTypeList:
-        #fh = os.popen('%s -h 2> /dev/null' % cmd)
+        # fh = os.popen('%s -h 2> /dev/null' % cmd)
         fh = os.popen('which %s 2> /dev/null' % cmd)
         if fh.read():
-            if clusterClass == SGEcluster and useFromMasterNode and not __isMasterNode():
+            if clusterClass == SGEcluster and useFromMasterNode and not \
+               __isMasterNode():
                 return ThreadManager(nbCpus, *args)
             return clusterClass()
     if allowLocalRun:
         print msg
         return ThreadManager(nbCpus, *args)
     return ThreadManager(nbCpus, *args)
-    
-    
-def guessHpcOld2(allowLocalRun=False, nbCpus=None, useFromMasterNode=True, *args):
+
+
+def guessHpcOld2(allowLocalRun=False, nbCpus=None, useFromMasterNode=True,
+                 *args):
     if not nbCpus:
         nbCpus = _getNbAvailableCpus()
     if _guessLocation() == HpcScriptBase.CNG_MAC:

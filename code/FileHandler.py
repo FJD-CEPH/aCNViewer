@@ -353,7 +353,7 @@ class FileNameGetter:
         self.__fileName = fileName
         self.__fileExt = Utilities.getFileExtension(fileName)
 
-    def get(self, newFileExt, checkFileNames = True):
+    def get(self, newFileExt, checkFileNames=True):
         shift = 0
         if newFileExt[0] in ['_', '.']:
             shift = -1
@@ -364,9 +364,9 @@ class FileNameGetter:
 one: file = "%s", fileExt = [%s], newFileExt = [%s]' % (self.__fileName,
                                                         self.__fileExt,
                                                         newFileExt))
-        #if '..' in newFileName:
-            #print self.__fileName, self.__fileExt, newFileExt, newFileName
-            #raise NotImplementedError
+        # if '..' in newFileName:
+        # print self.__fileName, self.__fileExt, newFileExt, newFileName
+        # raise NotImplementedError
         return newFileName
 
 
@@ -475,7 +475,8 @@ class ParseFastaFile(object):
                                   not ValueParser().isNb(seqName[3:]) and
                                   len(seqName) not in [4, 5]):
                     continue
-                if not ValueParser().isNb(seqName.replace('chr', '')) and seqName.replace('chr', '') not in ['X', 'Y', 'M', 'MT']:
+                if not ValueParser().isNb(seqName.replace('chr', '')) and \
+                   seqName.replace('chr', '') not in ['X', 'Y', 'M', 'MT']:
                     continue
             if excludeMT and seqName in ['M', 'MT', 'chrM', 'chrMT']:
                 continue

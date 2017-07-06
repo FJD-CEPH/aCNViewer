@@ -52,6 +52,8 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
 The easiest way to install aCNViewer is to install the [Docker application](https://hub.docker.com/r/fjdceph/acnviewer/) (supports multi-threading but not computer clusters which are better suited for processing NGS bams):
 `docker pull fjdceph/acnviewer`
 
+aCNViewer docker image requires about 20GB of space to install so if you run into an error while pulling the image locally, you probably need to [change the location of docker images from /var/lib/docker/ to a location with more space](https://linuxconfig.org/how-to-move-docker-s-default-var-lib-docker-to-another-directory-on-ubuntu-debian-linux) and try again.
+
 
 ### Installation from source
 
@@ -203,7 +205,7 @@ Here are other typical plots you may be interested in:
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE --refBuild REF_BUILD -b` <a href="#binDir">`BIN_DIR`</a> `[--histogram HISTOGRAM --lohToPlot LOH_TO_PLOT --useFullResolutionForHist USE_FULL_RESOLUTION_FOR_HIST] [-c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT --ploidyFile PLOIDY_FILE] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE] [--runGISTIC RUN_GISTIC --geneGistic GENE_GISTIC --smallMem SMALL_MEM --broad BROAD --brLen BR_LEN --conf CONF --armPeel ARM_PEEL --saveGene SAVE_GENE --gcm GCM]`<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ASCAT_SEGMENT_FILE --refBuild REF_BUILD -b` <a href="#binDir">`BIN_DIR`</a> `[--histogram HISTOGRAM --lohToPlot LOH_TO_PLOT --useFullResolutionForHist USE_FULL_RESOLUTION_FOR_HIST] [-c CHR_SIZE_FILE -t OUTPUT_DIR -C CENTROMERE_FILE -w WINDOW_SIZE --sampleFile SAMPLE_FILE -G PHENOTYPIC_COLUMN_NAME --rColorFile RCOLOR_FILE --plotAll PLOT_ALL --outputFormat OUTPUT_FORMAT --ploidyFile PLOIDY_FILE --sampleToProcessList SAMPLE_TO_PROCESS_LIST --sampleToExcludeList SAMPLE_TO_EXCLUDE_LIST --sampleAliasFile SAMPLE_ALIAS_FILE] [--heatmap HEATMAP --labRow LAB_ROW --labCol LAB_COL --cexCol CEX_COL --cexRow CEX_ROW --height HEIGHT --width WIDTH --margins MARGINS --hclust HCLUST --groupLegendPos GROUP_LEGEND_POS --chrLegendPos CHR_LEGEND_POS --useRelativeCopyNbForClustering USE_RELATIVE_COPY_NB_FOR_CLUSTERING --keepGenomicPosForHistogram KEEP_GENOMIC_POS] [--dendrogram DENDROGRAM --useShape USE_SHAPE] [--runGISTIC RUN_GISTIC --geneGistic GENE_GISTIC --smallMem SMALL_MEM --broad BROAD --brLen BR_LEN --conf CONF --armPeel ARM_PEEL --saveGene SAVE_GENE --gcm GCM]`<br>
 where:
 * <a id="ascatSegmentFile"></a>`ASCAT_SEGMENT_FILE`: ASCAT segment file (`ascat.output$segments` obtained by running `ascat.runAscat`) with the following columns:
   + `sample`
@@ -224,11 +226,15 @@ where:
 * `PLOT_ALL`: specify whether all available plots should be generated. The default value is `1`.
 * <a id="outputFormat"></a>`OUTPUT_FORMAT`: allow to customize output formats for the different types of available plots (histograms, heatmaps and dendrograms). Examples of use can be found [above](#outputFormatExamples). The default value is `hist:png(width=4000,height=1800,res=300);hetHom:png(width=4000,height=1800,res=300);dend:png(width=4000,height=2200,res=300);heat:pdf(width=10,height=12)`.
 * `PLOIDY_FILE`: custom ploidy values for each sample. Can either be a tab-delimited file with at least 2 columns: "sample" and "ploidy" or an integer which will set the same ploidy to all samples. By default, the ploidy is calculated using the CNV file segmented in fragments of 10% of chromosomal length and its value will be the most represented CNV value for each sample.
+* `SAMPLE_TO_PROCESS_LIST`: comma-separated string or file with one sample per line used to restrict the list of samples to process by aCNViewer.
+* `SAMPLE_TO_EXCLUDE_LIST`: comma-separated string or file with one sample per line used to exclude a list of samples from analyses.
+* `SAMPLE_ALIAS_FILE`: optional parameter used to change the sample name to a preferred sample name. It is a tab-delimited file with 2 columns: one for the sample name and a second one with the preferred sample name.
+
 
 <a id="histogramOptions"></a>**The following options are histogram specific**:
 * `HISTOGRAM`: specify whether an histogram should be generated. The default value is `0` but its value is overriden to `1` when option `--plotAll 1` is set.
 * <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
-* <a id="useFullRes"></a>`USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
+* <a id="useFullRes"></a>`USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length through a binary circular segmentation. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
 
 
 <a id="gisticOptions"></a>**The following options are GISTIC options** (more details can be found [here](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm)):
@@ -293,7 +299,7 @@ Generate a quantitative stacked histogram from [raw Illumina data](https://www.n
 
 ==**Here is the full command:**==
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES --refBuild` [`REF_BUILD`](#refbuild) `-b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f ILLU_FILES --refBuild` [`REF_BUILD`](#refbuild) `-b` <a href="#binDir">`BIN_DIR`</a> `[--sampleList SAMPLE_TO_PROCESS_FILE] --probeFile PROBE_POS_FILE --platform ILLUMINA_PLATFORM [--beadchip BEADCHIP] [-g ASCAT_GC_FILE] [-N NORMALIZE]` [[`GENERAL_PLOT_OPTIONS`](#generalPlotOptions)] [[`HISTOGRAM_OPTIONS`]](#histogramOptions) [`[GISTIC_OPTIONS]`](#gisticOptions) [`[HEATMAP_DENDRO_OPTIONS]`](#heatmapDendroOptions)<br>
 where:
   * `ILLU_FILES` can either be the list of Illumina final report files to process specified either as a comma-separated string with all the report files to process or as a directory containing these files. Each Illumina final report file should contain at least the following columns:
     - `SNP Name`
@@ -315,9 +321,11 @@ where:
   * `PROBE_POS_FILE`: file listing the probes used on the SNP array with their genomic position. The file is tab-delimited with the following columns:
     - `Name`
     - `Chr`
-    - `MapInfo`
+    - `MapInfo` or `Position`
   * `ILLUMINA_PLATFORM`: name of ASCAT supported Illumina platform with a GC content file available ("Illumina660k" or "HumanOmniExpress12"). Please refer to [ASCAT website](//www.crick.ac.uk/peter-van-loo/software/ASCAT) for more details
+  * `BEADCHIP`: 
   * <a href="#ascatGcFile">`ASCAT_GC_FILE`</a>
+  * `NORMALIZE`: Turn on / off <a href="#tqn">tQN</a> normalization. The default value is 1.
   * `SAMPLE_TO_PROCESS_FILE`: optional, used to specify list of samples to process in one of the following formats:
     - a comma-separated string listing all the samples to process
     - the name of text file with one line per sample to process

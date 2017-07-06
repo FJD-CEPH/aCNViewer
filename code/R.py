@@ -22,7 +22,7 @@ class R:
         rStr = self._execString('.libPaths()', True).read()
         dirList = []
         for line in rStr.split('\n'):
-            dirList += [currentDir.strip('"') for currentDir in \
+            dirList += [currentDir.strip('"') for currentDir in
                         line.split('] ')[-1].split()]
         return dirList
 
