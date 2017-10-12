@@ -37,7 +37,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     + [from other tools](#othercnvformats)
 - [Output files](#outputfiles)
   * [ASCAT](#ascat)
-  * [GISTIC](#gisticoutputs)
+  * [GISTIC](#gistic-outputs)
   * [Sequenza](#sequenza)
   * [Histogram](#histogramoutputs)
   * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
@@ -164,7 +164,7 @@ Here are other typical plots you may be interested in:
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1`
 
-You can view the GISTIC results with (significant broad events)[/img/all_lesions.conf_90.txt] and [significant focal events)(/img/broad_significance_results.txt).
+You can view the GISTIC results with [significant broad events](/img/all_lesions.conf_90.txt) and [significant focal events](/img/broad_significance_results.txt).
 
 
 <a id="heatmapRel"></a><u>Heatmap of relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
