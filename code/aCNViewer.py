@@ -23,6 +23,14 @@ from sort import Sort
 _isCustom = False
 
 
+def _getRobj(binDir, rLibDir):
+    rDir = binDir
+    if binDir and not os.path.isfile(os.path.join(binDir,
+                                                  'R')):
+        rDir = None
+    return R(rDir, libDir=rLibDir)
+
+
 class RunTQN:
 
     def __init__(self, binDir=None, rLibDir=None):
@@ -289,11 +297,7 @@ class RunTQN:
             # sys.exit(0)
 
     def __installLimmaIfNecessary(self):
-        rDir = self.__binDir
-        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
-                                                             'R')):
-            rDir = None
-        r = R(rDir, libDir=self.__rLibDir)
+        r = _getRobj(self.__binDir, self.__rLibDir)
         if not r.isPackageInstalled('limma'):
             r._execString(
                 "source('http://bioconductor.org/biocLite.R'); \
@@ -5547,6 +5551,18 @@ segments in sample %s: pos=%s, copyNbList=%s' % (sampleName, cov.pos,
                 refFileName = refFileList[0]
         return chrSizeFile, centroFile, refFileName
 
+    def __isFileCGHregionsDumpFile(self, fileName):
+        r = _getRobj(self.__binDir, self.__rLibDir)
+        libName = 'CGHregions'
+        if not r.isPackageInstalled(libName):
+            r.installPackage(libName)
+        cmd = "library(%s); load('%s'); length(regions)" % (libName, fileName)
+        try:
+            r._execString(cmd)
+            return True
+        except NotImplementedError:
+            pass
+
     def __getAscatFileAndDumpFileName(self, ascatFile, chrFile, targetDir,
                                       ploidyFile, histogram=True, merge=False,
                                       dendrogram=False, plotAll=False,
@@ -5568,6 +5584,8 @@ segments in sample %s: pos=%s, copyNbList=%s' % (sampleName, cov.pos,
                                       refFileName=None, createMpileUp=True,
                                       byChr=True, pattern=None,
                                       samplePairFile=None):
+        if self.__isFileCGHregionsDumpFile(ascatFile):
+            return self.__convertCGHregionsDumpIntoAscatFormat(ascatFile, targetDir), None
         if os.path.isdir(ascatFile):
             dumpFileName = os.path.join(targetDir, 'ascatFile.pyDump')
         else:
@@ -5859,11 +5877,7 @@ Please re-run the same command when all the submitted jobs are finished.'
         if fileType == 'Sequenza' and samplePairFile:
             RunSequenza(self.__binDir, self.__rLibDir).\
                        _installSequenzaIfNecessary()
-        rDir = self.__binDir
-        if self.__binDir and not os.path.isfile(os.path.join(self.__binDir,
-                                                             'R')):
-            rDir = None
-        r = R(rDir, libDir=self.__rLibDir)
+        r = _getRobj(self.__binDir, self.__rLibDir)
         if heatmap or plotAll:
             for packageName in ['ggplot2', 'RColorBrewer', 'gplots']:
                 if not r.isPackageInstalled(packageName):
@@ -5872,6 +5886,59 @@ Please re-run the same command when all the submitted jobs are finished.'
             if not r.isPackageInstalled('ggplot2'):
                 raise NotImplementedError('R ggplot2 module is not installed')
 
+    def __convertCGHregionsDumpIntoAscatFormat(self, fileName, targetDir):
+        rFileName = os.path.join(targetDir, FileNameGetter(os.path.basename(fileName)).get('_ascat.R'))
+        regionFileName = os.path.join(targetDir, FileNameGetter(os.path.basename(fileName)).get('_regions.txt'))
+        probeFileName = os.path.join(targetDir, FileNameGetter(os.path.basename(fileName)).get('_probes.txt'))
+        libName = 'CGHregions'
+        rStr = '''library(%s)
+load("%s")
+write.table(regions(regions), file="%s", sep="\t")
+
+# write probe data in another file
+write.table(paste(featureData(regions)$Chromosome, featureData(regions)$Start, featureData(regions)$End, sep="\t"), file="%s", sep="\t")
+''' % (libName, fileName, regionFileName, probeFileName)
+        outFh = CsvFileWriter(rFileName)
+        outFh.write(rStr)
+        outFh.close()
+        r = _getRobj(self.__binDir, self.__rLibDir)
+        r.runScript(rFileName)
+        for fileName in [regionFileName, probeFileName]:
+            if not os.path.isfile(fileName):
+                raise NotImplementedError('File "%s" does not exist...' % fileName)
+        return self.__convertCGHregionsFilesIntoAscatFormat(regionFileName, probeFileName, targetDir)
+    
+    def __convertCGHregionsFilesIntoAscatFormat(self, regionFileName, probeFileName, targetDir):
+        ascatFileName = os.path.join(targetDir, FileNameGetter(os.path.basename(regionFileName)).get('_ascat.txt'))
+        outFh = CsvFileWriter(ascatFileName)
+        outFh.write(['sample', 'chr', 'startpos', 'endpos', 'nMajor', 'nMinor'])
+        probeFh = ReadFileAtOnceParser(probeFileName)
+        probeFh.getSplittedLine()
+        regionFh = ReadFileAtOnceParser(regionFileName)
+        header = regionFh.getSplittedLine()
+        sampleDataDict = defaultdict(list)
+        for splittedLine in regionFh:
+            probeSplittedLine = probeFh.getSplittedLine()
+            if probeSplittedLine[0] != splittedLine[0]:
+                raise NotImplementedError('Expecting line number to be the \
+same between probeFile "%s" and regionFile "%s":\n%s\n%s' %
+(probeFileName, regionFileName, probeSplittedLine, splittedLine))
+            print probeSplittedLine
+            chrName, start, end = probeSplittedLine[1:4]
+            chrName = chrName.strip('"')
+            start = int(start)
+            end = int(end.strip('"'))
+            for i, cnvValue in enumerate(splittedLine[1:]):
+                sampleName = header[i]
+                sampleDataDict[sampleName].append([sampleName, chrName, start, end, int(cnvValue), 0])
+        if probeFh.hasLinesLeft():
+            raise NotImplementedError('Expecting probeFile "%s" and \
+regionFile "%s" to have the same line numbers but lines remain in probeFile')
+        for sampleName in sorted(sampleDataDict):
+            for splittedLine in sampleDataDict[sampleName]:
+                outFh.write(splittedLine)
+        return ascatFileName
+    
     def process(self, ascatFile, chrFile, targetDir, ploidyFile,
                 histogram=True, merge=False, dendrogram=False, plotAll=False,
                 centromereFile=None, defaultGroupValue=None,
@@ -5887,7 +5954,8 @@ Please re-run the same command when all the submitted jobs are finished.'
                 byChr=True, pattern=None, samplePairFile=None, runGISTIC=False,
                 refBuild=None, geneGistic=None, smallMem=None, broad=None,
                 brLen=None, conf=None, armPeel=None, saveGene=None, gcm=None,
-                homoHeteroCNVs=False, useFullResolutionForHist=None):
+                homoHeteroCNVs=False, useFullResolutionForHist=None,
+                useCustomPloidies=False):
         # print 'DDD', lohToPlot
         self._checkWhetherDependenciesAreInstalled(fileType, samplePairFile,
                                                    heatmap, plotAll, histogram,
@@ -6599,7 +6667,8 @@ Contact: aCNViewer@cephb.fr'.format(2.0, '20170610'))
                      brLen=options.brLen, conf=options.conf,
                      armPeel=options.armPeel, saveGene=options.saveGene,
                      gcm=options.gcm, homoHeteroCNVs=options.homoHeteroCNVs,
-                     useFullResolutionForHist=options.useFullResolutionForHist)
+                     useFullResolutionForHist=options.useFullResolutionForHist,
+                     useCustomPloidies=options.useCustomPloidies)
 
 runFromTerminal(__name__, [CommandParameter('a', 'all',
                                             CommandParameterType.BOOLEAN,
@@ -7002,7 +7071,12 @@ the output folder'),
                            CommandParameter('tumorBam', 'string',
                                             helpString='Sequenza parameter \
 indicating tumor bam file'),
-
+                           
+                           CommandParameter('useCustomPloidies',
+                                            CommandParameterType.BOOLEAN,
+                                            helpString='tell whether to use \
+custom ploidies instead of ASCAT / Sequenza'),
+                           
                            CommandParameter('useFullResolutionForHist',
                                             CommandParameterType.BOOLEAN,
                                             defaultValue=True,

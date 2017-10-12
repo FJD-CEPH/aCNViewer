@@ -3,7 +3,7 @@ comprehensive genome-wide visualization of absolute copy number and copy neutral
 
 **Contact:** Victor Renault / Alexandre How-Kit (aCNViewer@cephb.fr)
 
-aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of absolute CNVs and cn-LOH across a group of cancer samples. aCNViewer proposes three graphical representations : dendrograms, bidimensional heatmaps allowing the visualization of chromosomal regions sharing similar abnormality patterns and quantitative stacked histograms facilitating the identification of recurrent absolute CNVs and cn-LOH. aCNViewer include a complete pipeline allowing the processing of raw data from SNP array and whole exome/genome sequencing experiments using respectively ASCAT and Sequenza algorithms to generate absolute CNV and cn-LOH data used for the graphical outputs.
+aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of absolute CNVs and cn-LOH across a group of cancer samples. aCNViewer proposes three graphical representations : dendrograms, bidimensional heatmaps allowing the visualization of chromosomal regions sharing similar abnormality patterns and quantitative stacked histograms facilitating the identification of recurrent absolute CNVs and cn-LOH. aCNViewer include a complete pipeline allowing the processing of raw data from SNP array (in tumor-only or paired tumor / normal mode) and whole exome/genome sequencing experiments (in paired tumor / normal mode only) using respectively ASCAT and Sequenza algorithms to generate absolute CNV and cn-LOH data used for the graphical outputs.
 
 
 ## Table of contents
@@ -37,7 +37,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
     + [from other tools](#othercnvformats)
 - [Output files](#outputfiles)
   * [ASCAT](#ascat)
-  * [GISTIC](#gistic)
+  * [GISTIC](#gisticoutputs)
   * [Sequenza](#sequenza)
   * [Histogram](#histogramoutputs)
   * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
@@ -163,6 +163,8 @@ Here are other typical plots you may be interested in:
 <a id="gisticExample"></a><u>Quantitative histogram with GISTIC results:</u>
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1`
+
+You can view the GISTIC results with (significant broad events)[/img/all_lesions.conf_90.txt] and [significant focal events)(/img/broad_significance_results.txt).
 
 
 <a id="heatmapRel"></a><u>Heatmap of relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
@@ -432,7 +434,7 @@ When processing raw SNP array data with aCNViewer, ASCAT is used to calculate CN
 | .segments.txt | list of all CNVs with the copy number for each allele |
 
 
-#### GISTIC
+#### GISTIC outputs
 
 For the full list of GISTIC output files, please refer to the section `Output Files` of the following [website](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm). Here are the main output files of interest:
 
