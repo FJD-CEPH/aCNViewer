@@ -41,7 +41,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
   * [Sequenza](#sequenza)
   * [Histogram](#histogramoutputs)
   * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
-  
+- [Limitations](#limitations)
 
 ***
 
@@ -164,7 +164,7 @@ Here are other typical plots you may be interested in:
 
 <a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.segments.txt -t TEST_AFFY_GISTIC --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --runGISTIC 1`
 
-You can view the GISTIC results with [significant broad events](/img/all_lesions.conf_90.txt?raw=true) and [significant focal events](/img/broad_significance_results.txt?raw=true).
+<b>If you have trouble running this example</b> (in particular if your machine freezes or you get the message "Killed" in the "_gistic.txt.err" file), it may be due to a lack of resources in the machine you are using. In that case, please add the following option to the command above `--smallMem 1` so that GISTIC runs in compressed memory mode. You can view the GISTIC results with [significant broad events](/img/all_lesions.conf_90.txt?raw=true) and [significant focal events](/img/broad_significance_results.txt?raw=true).
 
 
 <a id="heatmapRel"></a><u>Heatmap of relative copy number values only for the clinical feature `BCLC stage` with the chromosome legend position set at `0,.55` i.e. at the left-most of the graph and at 55% on the y axis and the group legend position set at `.9,1.05` (basically at the top right corner):</u>
@@ -275,7 +275,7 @@ where:
 
 **Generate a quantitative stacked histogram from CEL files (subset of [data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE9845) of hepatocellular carcinomas with hepatitis C virus etiology used in Chiang et al. Cancer Res, 2008) with a window size of 2Mbp:**
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/snpArrays250k_sty/ -t TEST_AFFY_CEL --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin --platform Affy250k_sty -l aCNViewer_DATA/snpArrays250k_sty/LibFiles/` <a href="#useCustomPloidies">[--useCustomPloidies USE_CUSTOM_PLOIDIES]</a>
 
 If ASCAT is not installed (i.e you are not using the [docker](https://hub.docker.com/r/fjdceph/acnviewer/) application) and if you want to install it into a custom R library folder, please add the following option to the previous command line: `--rLibDir RLIB`.
 
@@ -289,6 +289,7 @@ where:
 * `AFFY_LIB_DIR`: Affymetrix library file downloadable from [Affymetrix website](http://www.affymetrix.com/support/technical/byproduct.affx?cat=dnaarrays)
 * `GW6_DIR` is optional and refers to the folder where [gw6.tar.gz](http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz) has been uncompressed into. This archive contains different programs and files necessary to process Affymetrix SNP array and has been uncompressed into `aCNViewer_DATA/bin/PennCNV/gw6/` (default value).
 * <a id="ascatGcFile">`ASCAT_GC_FILE`</a>: GC content file necessary for ASCAT GC correction when analyzing SNP array data. This parameter is optional as its value will be automatically deduced from the value of `AFFY_PLATFORM`. Please check [ASCAT website](https://www.crick.ac.uk/peter-van-loo/software/ASCAT) for available GC content files. It is also possible to [create custom GC file](https://github.com/Crick-CancerGenomics/ascat/tree/master/gcProcessing).
+* <a id="useCustomPloidies">`USE_CUSTOM_PLOIDIES`</a>: specify whether ploidies should be calculated using our custom algorithm (use a window of 10% of chromosomal length and set the ploidy to the most frequent CNV value for each sample) or use ploidies calculated by ASCAT/Sequenza. The default value is `1`.
 
 
 #### Illumina
@@ -343,7 +344,7 @@ Sequenza is used to process NGS **paired (tumor / normal) bams** and produce CNV
 
 Generate a quantitative histogram from paired (tumor / normal) bams:
 
-<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/wes/bams/ -t TEST_WES_RAW --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --fileType Sequenza --samplePairFile aCNViewer_DATA/wes/bams/sampleFile.txt`
+<a href="#dockerOrPython">`DOCKER_OR_PYTHON`</a> `-f aCNViewer_DATA/wes/bams/ -t TEST_WES_RAW --refBuild hg19 -w 2000000 -b aCNViewer_DATA/bin --fileType Sequenza --samplePairFile aCNViewer_DATA/wes/bams/sampleFile.txt` <a href="#useCustomPloidies">[--useCustomPloidies USE_CUSTOM_PLOIDIES]</a>
 
 ==**Here is the full command:**==
 
@@ -490,3 +491,6 @@ The following files are created as well:
 2 folders (`relCopyNb` and `rawCopyNb`) will be created and will respectively contain graphs generated from relative copy number values and raw copy number values.
 
 
+### Limitations
+
+aCNViewer has a few limitations including the fact that it does not currently account for intra-tumor heterogeneity. Indeed, having a simultaneous view on the copy number landscape along with the clonality status of these events could help better understand the mechanisms of a disease. Another current limitation of aCNViewer is the absence of a function to compare two groups of samples. One simple way to do that, though, would be to generate the quantitative histograms for both groups separately and compare these plots (as we did in Fig 2 of the article).

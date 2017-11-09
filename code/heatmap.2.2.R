@@ -618,7 +618,7 @@ heatmap.2.1 <- function (x,
 		  breaks <- seq(-4, 5, length=breaks) #breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
 		}
 		else{
-		  breaks <- seq(0, 9, length=breaks) #breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
+		  breaks <- seq( min(x, na.rm=na.rm), max(x,na.rm=na.rm), length=breaks)
 		}
 	  }
       else
