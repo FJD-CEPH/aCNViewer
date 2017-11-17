@@ -236,7 +236,7 @@ where:
 <a id="histogramOptions"></a>**The following options are histogram specific**:
 * `HISTOGRAM`: specify whether an histogram should be generated. The default value is `0` but its value is overriden to `1` when option `--plotAll 1` is set.
 * <a id="lohToPlot"></a>`LOH_TO_PLOT`: histogram option for LOH plotting. Values should be one of "cn-LOH" for plotting cn-LOH only, "LOH" for LOH only, "both" for cn-LOH and LOH or "none" to disable this feature. The default value is "cn-LOH".
-* <a id="useFullRes"></a>`USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length through a binary circular segmentation. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
+* <a id="useFullRes"></a>`USE_FULL_RESOLUTION_FOR_HIST`: tell whether to plot histogram using full resolution i.e. CNVs are not segmented according to a user-defined length through windowing approach. The default value is `1`. If `0`, the resolution of the plot will be given by either <a href="#windowSize">`WINDOW_SIZE`</a> or <a href="#windowSize">`PERCENTAGE`</a>.
 
 
 <a id="gisticOptions"></a>**The following options are GISTIC options** (more details can be found [here](ftp://ftp.broadinstitute.org/pub/GISTIC2.0/GISTICDocumentation_standalone.htm)):
