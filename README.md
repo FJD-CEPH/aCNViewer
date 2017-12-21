@@ -499,6 +499,6 @@ aCNViewer has a few limitations including the fact that it does not currently ac
 
 ### Citation
 
-aCNViewer: comprehensive genome-wide visualization of absolute copy number and copy
-neutral variations. *Victor Renault, Jörg Tost, Fabien Pichon, Shu-Fang Wang-Renault, Eric
-Letouzé, Sandrine Imbeaud, Jessica Zucman-Rossi, Jean-François Deleuze & Alexandre How-Kit.* PLoS One. 2017 Dec 19;12(12):e0189334. doi: 10.1371/journal.pone.0189334. eCollection 2017.
+**aCNViewer: comprehensive genome-wide visualization of absolute copy number and copy
+neutral variations.** *Victor Renault, Jörg Tost, Fabien Pichon, Shu-Fang Wang-Renault, Eric
+Letouzé, Sandrine Imbeaud, Jessica Zucman-Rossi, Jean-François Deleuze & Alexandre How-Kit.* **PLoS One. 2017** Dec 19;12(12):e0189334. doi: 10.1371/journal.pone.0189334. eCollection 2017.
