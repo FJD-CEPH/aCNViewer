@@ -42,6 +42,7 @@ aCNViewer (Absolute CNV Viewer) is a tool which allows the visualization of abso
   * [Histogram](#histogramoutputs)
   * [Dendrograms and heatmaps](#dendrograms-and-heatmaps)
 - [Limitations](#limitations)
+- [Citation](#citation)
 
 ***
 
@@ -493,4 +494,11 @@ The following files are created as well:
 
 ### Limitations
 
-aCNViewer has a few limitations including the fact that it does not currently account for intra-tumor heterogeneity. Indeed, having a simultaneous view on the copy number landscape along with the clonality status of these events could help better understand the mechanisms of a disease. Another current limitation of aCNViewer is the absence of a function to compare two groups of samples. One simple way to do that, though, would be to generate the quantitative histograms for both groups separately and compare these plots (as we did in Fig 2 of the article).
+aCNViewer has a few limitations including the fact that it does not currently account for intra-tumor heterogeneity. Indeed, having a simultaneous view on the copy number landscape along with the clonality status of these events could help better understand the mechanisms of a disease. Another current limitation of aCNViewer is the absence of a function to compare two groups of samples. One simple way to do that, though, would be to generate the quantitative histograms for both groups separately and compare these plots (as we did in Fig 2 of the article below).
+
+
+### Citation
+
+aCNViewer: comprehensive genome-wide visualization of absolute copy number and copy
+neutral variations. *Victor Renault, Jörg Tost, Fabien Pichon, Shu-Fang Wang-Renault, Eric
+Letouzé, Sandrine Imbeaud, Jessica Zucman-Rossi, Jean-François Deleuze & Alexandre How-Kit.* PLoS One. 2017 Dec 19;12(12):e0189334. doi: 10.1371/journal.pone.0189334. eCollection 2017.
