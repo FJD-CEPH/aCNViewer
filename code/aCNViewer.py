@@ -1746,8 +1746,13 @@ class RunSequenza:
     def __convertSegmentFileIntoAscatFormat(self, fileName, outFileName):
         fh = ReadFileAtOnceParser(fileName)
         header = fh.getSplittedLine()
-        aIdx = header.index('"A"')
-        bIdx = header.index('"B"')
+        try:
+            aIdx = header.index('"A"')
+            bIdx = header.index('"B"')
+        except ValueError:
+            aIdx = header.index('A')
+            bIdx = header.index('B')
+        
         outFh = CsvFileWriter(outFileName)
         sampleName = os.path.basename(fileName).split('_')[0]
         for splittedLine in fh:
@@ -2111,6 +2116,31 @@ class aCNViewer:
         self.__sampleToExcludeList = self.__getSampleListFromParameter(
             sampleToExcludeList)
 
+    def _checkCopyNumberFile(self, fileName):
+        fh = ReadFileAtOnceParser(fileName)
+        header = fh.getSplittedLine()
+        sampleToCovDict = defaultdict(list)
+        for splittedLine in fh:
+            sampleName = splittedLine[0]
+            cov = Coverage(OrientedPosition(*(splittedLine[1:4] + ['+'])), score = [sampleName])
+            sampleToCovDict[sampleName].append(cov)
+        print '%d samples to check' % len(sampleToCovDict)
+        for sampleName, covList in sampleToCovDict.iteritems():
+            print 'Checking sample %s' % sampleName
+            Utilities.sortByPosition(covList)
+            mergedCovList = []
+            prevCov = None
+            for cov in covList:
+                CoverageMerger()._mergeCov2(cov, mergedCovList)
+            error = False
+            for cov in mergedCovList:
+                if len(cov.score) > 1:
+                    error = True
+                    print 'Overlapping segments for sample %s' % sampleName
+                    print cov
+        if error:
+            raise NotImplementedError
+        
     def __getSampleListFromParameter(self, sampleList):
         if sampleList and len(sampleList) == 1 and \
            os.path.isfile(sampleList[0]):
@@ -2153,6 +2183,7 @@ class aCNViewer:
     def __mergeSegments(self, ascatFile, centromereFile, targetDir):
         centromereDict = self._getCentromereDictFromFile(centromereFile)
         print 'CENTRO:', centromereDict
+        print 'AscatFile=', ascatFile
         sampleSet = set()
         dumpFileName = FileNameGetter(ascatFile).get(
             '_%s.pyDump' % os.path.basename(centromereFile).split('.')[0])
@@ -2182,7 +2213,11 @@ class aCNViewer:
                 continue
             cov = Coverage(pos, score=[(sampleName, int(nMajor),
                                         int(nMinor))])
-            CoverageMerger()._mergeCov(cov, covList)
+            try:
+                CoverageMerger()._mergeCov2(cov, covList)
+            except:
+                print cov
+                raise
             sampleSet.add(sampleName)
         return covList, len(sampleSet)
 
@@ -2227,7 +2262,7 @@ class aCNViewer:
             outFh.write([key, cov.pos.ctgId, start, length, value,
                          ','.join(sampleList)])
         if totalNb > nbSamples:
-            print cov, totalNb
+            print cov, totalNb, nbSamples
             raise NotImplementedError
 
     def __createHeteroHomoHistDataFileFromCovList(self, covList, dumpFileName,
@@ -2242,6 +2277,8 @@ class aCNViewer:
             outFh.write([key, 1, 2, 1, 0, ''])
         prevChr = None
         for cov in covList:
+            if not ValueParser().isNb(cov.pos.ctgId):
+                continue
             self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
             if cov.pos.ctgId != prevChr:
                 chrLength = chrSizeDict[cov.pos.ctgId]
@@ -2282,6 +2319,8 @@ class aCNViewer:
         prevChr = None
         chrList = range(1, 23)
         for cov in covList:
+            if not ValueParser().isNb(cov.pos.ctgId):
+                continue
             self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
             if cov.pos.ctgId != prevChr:
                 chrLength = chrSizeDict[cov.pos.ctgId]
@@ -5499,7 +5538,7 @@ X11/app-defaults'
             Utilities.sortByPosition(covList)
             newCovList = []
             for cov in covList:
-                CoverageMerger()._mergeCov(cov, newCovList)
+                CoverageMerger()._mergeCov2(cov, newCovList)
             for cov in newCovList:
                 if len(set(cov.score)) > 1:
                     print 'Warning: PennCNV copyNb differ for overlapping \
@@ -6660,6 +6699,8 @@ Contact: aCNViewer@cephb.fr'.format(2.0, '20170610'))
     # elif options.progName == 'convertIlluminaReportsToLrrBaf':
         # RunAscat()._createMergedIlluminaFinalReports(fileList,
         # options.probeFile, options.outFileName, sampleList = None)
+    elif options.progName == 'checkSegmentFile':
+        aCNViewer(None, None)._checkCopyNumberFile(options.fileName)
     elif options.progName == 'createFileWithUpdatedPositions':
         RunAscat(options.binDir)._createFileWithUpdatedPositions(
             options.fileName, options.probeFile, options.targetBuild)
