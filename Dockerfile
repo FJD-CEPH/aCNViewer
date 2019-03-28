@@ -7,6 +7,12 @@
 # Pull base image.
 FROM ubuntu
 
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
+
+RUN \
+  echo "tzdata tzdata/Areas select Europe\ntzdata tzdata/Zones/Europe select Berlin" > tz.txt && debconf-set-selections tz.txt
+
 # Install Python.
 RUN \
   apt-get update && \
