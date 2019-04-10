@@ -2277,6 +2277,8 @@ class aCNViewer:
             outFh.write([key, 1, 2, 1, 0, ''])
         prevChr = None
         for cov in covList:
+            if str(cov.pos.ctgId)[:3] == 'chr':
+                cov.pos.ctgId = cov.pos.ctgId[3:]            
             if not ValueParser().isNb(cov.pos.ctgId):
                 continue
             self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
@@ -2309,6 +2311,7 @@ class aCNViewer:
     def __createHistDataFileFromCovList(self, covList, dumpFileName,
                                         ploidyDict, nbSamples, chrSizeDict):
         histFileName = FileNameGetter(dumpFileName).get('_hist.txt')
+        print 'histFile=%s, nb cov=%d' % (histFileName, len(covList))
         outFh = CsvFileWriter(histFileName)
         outFh.write(['CNV key', 'chrName', 'start',
                      'segmentLength', 'percentage', 'samples'])
@@ -2319,6 +2322,8 @@ class aCNViewer:
         prevChr = None
         chrList = range(1, 23)
         for cov in covList:
+            if str(cov.pos.ctgId)[:3] == 'chr':
+                cov.pos.ctgId = cov.pos.ctgId[3:]
             if not ValueParser().isNb(cov.pos.ctgId):
                 continue
             self.__writeMissingChr(outFh, prevChr, cov, keyList, chrSizeDict)
@@ -2589,7 +2594,10 @@ but %d were defined' % (tag, nbExpectedColors, len(colorList)))
             if currentSampleName != sampleName:
                 fh.restore(splittedLine)
                 break
-            lineDict[splittedLine[1]] = splittedLine[2:]
+            chrName = splittedLine[1]
+            if chrName[:3] == 'chr':
+                chrName = chrName[3:]
+            lineDict[chrName] = splittedLine[2:]
         return lineDict, sampleName
 
     def _getLineListInBetween(self, lineList, start, endSegment):
@@ -3865,7 +3873,15 @@ dev.off()
             currentDataList = matrixDict[sampleName]
             dataList.append((sampleName, currentDataList))
             if not dataSize:
-                dataSize = len(currentDataList)
+                try:
+                    dataSize = len(currentDataList)
+                except:
+                    print '%' *50
+                    print 'No data for sample: %s' % sampleName
+                    print chrDict.items()[:10]
+                    print '>' * 30
+                    sys.exit(-1)
+                    raise
             # print sampleName, dataSize, len(currentDataList)
             if dataSize != len(currentDataList):
                 raise NotImplementedError
@@ -4039,6 +4055,9 @@ dev.off()
             ploidy = ploidyDict[sampleName]
             if splittedLine[-1] == 'NA':
                 continue
+            chrName = splittedLine[1]
+            if chrName[:3] == 'chr':
+                splittedLine[1] = splittedLine[1][3:]
             nMin = float(splittedLine[-1])
             nMaj = float(splittedLine[-2])
             if shouldProcessFunc(nMin, nMaj, ploidy):
@@ -5777,10 +5796,10 @@ Please re-run the same command when all the submitted jobs are finished.'
         dumpFileName, covList, nbSamples = \
                     self.__getDumpFileNameCovListAndNbSamplesFromAscatFile(
                         ascatFile, centromereFile, targetDir)
-        # print '*' * 50
-        # for cov in covList:
-        # print cov
-        # print '2' * 40
+        #print '*' * 50
+        #for cov in covList:
+            #print cov
+        #print '2' * 40
         histFileName = self.__createHistDataFileFromCovList(
             covList, dumpFileName, ploidyDict, nbSamples, chrSizeDict)
         cnLohFileName = self.__createLohPointFile(cnLohFileName, nbSamples,
@@ -5818,6 +5837,7 @@ Please re-run the same command when all the submitted jobs are finished.'
             self._createLOH_Segments(ascatFile, ploidyFile,
                                      targetFileName=lohFileName2)
         if useFullResolutionForHist:
+            print 'Ascat file= ', ascatFile
             self.__plotHistogramWithoutSegmentation(
                 ascatFile, targetDir, ploidyFile, centromereDict,
                 chrSizeDict, plotAll, matrixDict,
@@ -6198,6 +6218,16 @@ class TestACNViewer:
             partList[i] = part
         return ' '.join(partList)
     
+    def __addChrToSegmentFileAndGetFileName(self, fileName):
+        targetFileName = FileNameGetter(fileName).get('Chr.txt')
+        outFh = CsvFileWriter(targetFileName)
+        fh = ReadFileAtOnceParser(fileName)
+        outFh.write(fh.getSplittedLine())
+        for splittedLine in fh:
+            splittedLine[1] = 'chr' + splittedLine[1]
+            outFh.write(splittedLine)
+        return targetFileName
+    
     def process(self, targetDir, fastTest, smallMem, runGistic=True,
                 binDir=None, dataDir=None):
         if not dataDir:
@@ -6216,6 +6246,11 @@ class TestACNViewer:
         cmdList = ['-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.\
 segments.txt -t TEST_AFFY --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin \
 --sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt',
+
+                                                                         '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.\
+segments.Chr.txt -t TEST_AFFY_CHR --refBuild hg18 -w 2000000 -b aCNViewer_DATA/bin \
+--sampleFile aCNViewer_DATA/snpArrays250k_sty/GSE9845_clinical_info2.txt',
+
 
                                                                          '-f aCNViewer_DATA/snpArrays250k_sty/GSE9845_lrr_baf.\
 segments.txt -t TEST_AFFY_HEATMAP1 --refBuild hg18 -w 2000000 -b \
@@ -6339,6 +6374,8 @@ aCNViewer_DATA/bin --runGISTIC 1 --smallMem %d' % smallMem)
             cmd = self.__replaceDataDirWithFullPathInCmd(cmd, dataDir)
             cmdList2.append((inFile, outDir2, Cmd('%s %s %s' % (
                 sys.executable, os.path.abspath(__file__), cmd), memory=8)))
+        segmentFile = os.path.join(dataDir, 'snpArrays250k_sty/GSE9845_lrr_baf.segments.txt')
+        self.__addChrToSegmentFileAndGetFileName(segmentFile)
         ProcessFileFromCluster()._runCmdList(cmdList2, None, cluster)
         if isinstance(cluster, ThreadManager):
             cluster.wait()
@@ -6484,6 +6521,9 @@ merged_hist_5.0pc.txt', expectedPloidyDict={'relCopyNb': 0.10792755344418052,
     def testAffy(self):
         self.__testAffy('TEST_AFFY')
 
+    def testAffyChr(self):
+        self.__testAffy('TEST_AFFY_CHR')
+
     def testAffyPdf(self):
         outDir = self.__testBase('TEST_AFFY_PDF', 2)
         self.assertEqual(len(glob.glob(os.path.join(outDir, 'relCopyNb',
@@ -6544,10 +6584,10 @@ merged_hist_5.0pc.txt', expectedPloidyDict={'relCopyNb': 0.10792755344418052,
                          expectedPloidy)
 
     def testAffyCel(self):
-        self.__testAffyCel('TEST_AFFY_CEL', 0.1706368610472045)
+        self.__testAffyCel('TEST_AFFY_CEL', 0.17063517003915474)#0.1706368610472045)
 
     def testAffyCel2(self):
-        self.__testAffyCel('TEST_AFFY_CEL2', 0.17237363749618306)
+        self.__testAffyCel('TEST_AFFY_CEL2', 0.1723724692407916)#0.17237363749618306)
 
     def testAffyHeatmap1(self):
         outDir = self.__testBase('TEST_AFFY_HEATMAP1', 1)
